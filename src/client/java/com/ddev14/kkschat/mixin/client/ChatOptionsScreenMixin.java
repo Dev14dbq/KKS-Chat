@@ -113,16 +113,16 @@ public class ChatOptionsScreenMixin {
 		AbstractSliderButton displayTimeSlider = new AbstractSliderButton(
 			0, 0, 150, 20,
 			Component.literal("Время показа: " + displayTime + "с"),
-			(displayTime - 1) / 29.0
+			(displayTime - 1) / 59.0
 		) {
 			@Override
 			protected void updateMessage() {
-				int secs = (int) Math.round(value * 29) + 1;
+				int secs = (int) Math.round(value * 59) + 1;
 				setMessage(Component.literal("Время показа: " + secs + "с"));
 			}
 			@Override
 			protected void applyValue() {
-				KksChatModClient.getHud().setDisplayTimeSeconds((int) Math.round(value * 29) + 1);
+				KksChatModClient.getHud().setDisplayTimeSeconds((int) Math.round(value * 59) + 1);
 			}
 		};
 

@@ -59,6 +59,27 @@ public class KksChatHud {
 	private static final long FADE_IN_TIME_MS = 200L;
 	private static final long FADE_OUT_TIME_MS = 300L;
 
+	/**
+	 * Альфа строки по настройке «время отображения» (по времени последнего обновления записи).
+	 * @return отрицательное значение, если строку не нужно показывать (истекло время)
+	 */
+	private float alphaForDisplayDuration(ChatMessageEntry entry, long now) {
+		long displayTimeMs = displayTimeSeconds * 1000L;
+		long entryAge = now - entry.timestamp;
+		if (entryAge > displayTimeMs) {
+			return -1f;
+		}
+		long timeSinceFirst = now - entry.firstMessageTime;
+		long timeUntilHide = displayTimeMs - entryAge;
+		if (timeSinceFirst < FADE_IN_TIME_MS) {
+			return (float) timeSinceFirst / FADE_IN_TIME_MS;
+		}
+		if (timeUntilHide < FADE_OUT_TIME_MS) {
+			return (float) timeUntilHide / FADE_OUT_TIME_MS;
+		}
+		return 1.0f;
+	}
+
 	// Full, styled chat line as Component (supports colors, hover, etc.)
 	// Эти поля используются для отображения последнего сообщения, когда чат закрыт
 	private Component messageComponent;
@@ -1787,31 +1808,12 @@ public class KksChatHud {
 			if (entry == null || entry.message == null) {
 				continue;
 			}
-			
-			// Проверяем, не истекло ли время отображения для этого сообщения
-			long entryAge = now - entry.timestamp;
-			if (entryAge > displayTimeMs) {
-				// Сообщение истекло, пропускаем его и все более старые
+
+			float alpha = alphaForDisplayDuration(entry, now);
+			if (alpha < 0f) {
 				break;
 			}
-			
-			// Вычисляем альфа для анимации
-			// Используем время от первого появления для fade in, но время до скрытия для fade out
-			long timeSinceFirst = now - entry.firstMessageTime;
-			long timeUntilHide = displayTimeMs - entryAge;
-			
-			float alpha;
-			if (timeSinceFirst < FADE_IN_TIME_MS) {
-				// Fade in: от 0 до 1.0 (только при первом появлении)
-				alpha = (float) timeSinceFirst / FADE_IN_TIME_MS;
-			} else if (timeUntilHide < FADE_OUT_TIME_MS) {
-				// Fade out: от 1.0 до 0 (перед скрытием)
-				alpha = (float) timeUntilHide / FADE_OUT_TIME_MS;
-			} else {
-				// Полная непрозрачность
-				alpha = 1.0f;
-			}
-			
+
 			// Рендерим сообщение
 			int messageHeight = renderSingleMessage(guiGraphics, font, screenWidth, currentY, entry, alpha);
 			
@@ -1847,6 +1849,9 @@ public class KksChatHud {
 		Font font = minecraft.font;
 		int screenWidth = minecraft.getWindow().getGuiScaledWidth();
 		int screenHeight = minecraft.getWindow().getGuiScaledHeight();
+		long now = System.currentTimeMillis();
+		// При прокрутке вверх показываем историю без таймера — иначе нельзя прочитать старые строки
+		boolean timeLimitActive = scrollOffset == 0;
 		
 		// Определяем сколько сообщений показывать (с учетом прокрутки)
 		int startIndex = Math.max(0, messageHistory.size() - scrollOffset - maxVisibleMessages);
@@ -1883,11 +1888,15 @@ public class KksChatHud {
 				if (collapsedMsg == null || collapsedMsg.message == null) {
 					continue;
 				}
+				float lineAlpha = timeLimitActive ? alphaForDisplayDuration(collapsedMsg, now) : 1.0f;
+				if (timeLimitActive && lineAlpha < 0f) {
+					break;
+				}
 				// Проверяем, не вышли ли мы за пределы экрана (но все равно рендерим для прокрутки)
 				if (currentY <= 0) {
 					break; // Прекращаем рендеринг, если вышли за пределы экрана
 				}
-				int msgHeight = renderSingleMessage(guiGraphics, font, screenWidth, currentY, collapsedMsg, 1.0f);
+				int msgHeight = renderSingleMessage(guiGraphics, font, screenWidth, currentY, collapsedMsg, lineAlpha);
 				int msgWidth = calculateMessageWidth(font, collapsedMsg.message);
 				int msgX = (screenWidth - msgWidth) / 2;
 				messageBounds.put(j, new MessageBounds(msgX, currentY - msgHeight, msgWidth, msgHeight, j));
@@ -1909,7 +1918,11 @@ public class KksChatHud {
 					for (int repeat = 0; repeat < entry.expandedMessages.size() && currentY > 0; repeat++) {
 						ChatMessageEntry expandedEntry = entry.expandedMessages.get(repeat);
 						if (expandedEntry != null && expandedEntry.message != null) {
-							int messageHeight = renderSingleMessage(guiGraphics, font, screenWidth, currentY, expandedEntry, 1.0f);
+							float lineAlpha = timeLimitActive ? alphaForDisplayDuration(expandedEntry, now) : 1.0f;
+							if (timeLimitActive && lineAlpha < 0f) {
+								break;
+							}
+							int messageHeight = renderSingleMessage(guiGraphics, font, screenWidth, currentY, expandedEntry, lineAlpha);
 							int boxWidth = calculateMessageWidth(font, expandedEntry.message);
 							int x = (screenWidth - boxWidth) / 2;
 							// Используем специальный индекс для повторений: i * 1000 + repeat
@@ -1918,9 +1931,13 @@ public class KksChatHud {
 						}
 					}
 				} else {
+					float entryAlpha = timeLimitActive ? alphaForDisplayDuration(entry, now) : 1.0f;
+					if (timeLimitActive && entryAlpha < 0f) {
+						break;
+					}
 					// Если списка нет, показываем сообщение repeatCount раз подряд (fallback)
 					for (int repeat = 0; repeat < entry.repeatCount && currentY > 0; repeat++) {
-						int messageHeight = renderSingleMessage(guiGraphics, font, screenWidth, currentY, entry, 1.0f);
+						int messageHeight = renderSingleMessage(guiGraphics, font, screenWidth, currentY, entry, entryAlpha);
 						int boxWidth = calculateMessageWidth(font, entry.message);
 						int x = (screenWidth - boxWidth) / 2;
 						// Используем специальный индекс для повторений: i * 1000 + repeat
@@ -1929,8 +1946,12 @@ public class KksChatHud {
 					}
 				}
 			} else {
+				float entryAlpha = timeLimitActive ? alphaForDisplayDuration(entry, now) : 1.0f;
+				if (timeLimitActive && entryAlpha < 0f) {
+					break;
+				}
 				// Рендерим одно сообщение
-				int messageHeight = renderSingleMessage(guiGraphics, font, screenWidth, currentY, entry, 1.0f);
+				int messageHeight = renderSingleMessage(guiGraphics, font, screenWidth, currentY, entry, entryAlpha);
 				int boxWidth = calculateMessageWidth(font, entry.message);
 				int x = (screenWidth - boxWidth) / 2;
 				messageBounds.put(i, new MessageBounds(x, currentY - messageHeight, boxWidth, messageHeight, i));
