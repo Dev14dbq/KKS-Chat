@@ -1,0 +1,44 @@
+{
+	"schemaVersion": 1,
+	"id": "kks-chat",
+	"version": "${version}",
+	"name": "KKS Chat",
+	"description": "Chat in the center of the screen with player avatars. Whisper messages, SkinsRestorer support and anti-spam.",
+	"authors": [
+		"DDev14"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/Dev14dbq/KKS-Chat"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/kks-chat/logo.png",
+	"environment": "client",
+	"entrypoints": {
+		"main": [
+			"com.ddev14.kkschat.KksChatMod"
+		],
+		"client": [
+			"com.ddev14.kkschat.KksChatModClient"
+		],
+		"modmenu": [
+			"com.ddev14.kkschat.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"modid.mixins.json",
+		{
+			"config": "modid.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.17.3",
+		"minecraft": "~1.21.9",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}

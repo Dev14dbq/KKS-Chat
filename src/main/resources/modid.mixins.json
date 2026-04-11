@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "com.ddev14.kkschat.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"KksChatMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

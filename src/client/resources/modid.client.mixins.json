@@ -1,0 +1,16 @@
+{
+	"required": true,
+	"package": "com.ddev14.kkschat.mixin.client",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"KksChatClientMixin",
+		"ChatScreenMixin",
+		"ChatOptionsScreenMixin",
+		"ChatComponentMixin",
+		"ChatListenerMixin",
+		"MinecraftMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
