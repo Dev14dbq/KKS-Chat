@@ -6,7 +6,13 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 
 public class KksChatModClient implements ClientModInitializer {
 
-	private static final KksChatHud HUD = new KksChatHud();
+	private static final KksChatHud HUD = createHud();
+
+	private static KksChatHud createHud() {
+		KksChatHud hud = new KksChatHud();
+		hud.loadConfig();
+		return hud;
+	}
 	
 	public static KksChatHud getHud() {
 		return HUD;

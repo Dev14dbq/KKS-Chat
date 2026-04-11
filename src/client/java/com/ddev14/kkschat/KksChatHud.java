@@ -49,8 +49,8 @@ public class KksChatHud {
 	int maxHistorySize = 100;
 	float backgroundOpacity = 0.3f; // Прозрачность фона (0.0 - 1.0, соответствует 0-100%)
 	int displayTimeSeconds = 5;
-	private int chatPosition = 0; // 0=по центру, 1=слева, 2=справа
-	private boolean antiSpamEnabled = true;
+	int chatPosition = 0;
+	boolean antiSpamEnabled = true;
 	
 	// Прокрутка истории чата
 	int scrollOffset = 0;
@@ -60,7 +60,7 @@ public class KksChatHud {
 	private boolean enabled = true;
 	
 	// Флаг изменения текста сообщений (true = изменять форматирование, false = показывать как есть)
-	private boolean modifyMessageText = true;
+	boolean modifyMessageText = true;
 	
 	// Максимальное количество сообщений для отображения без сжатия
 	int maxVisibleMessages = 10;
@@ -253,7 +253,8 @@ public class KksChatHud {
 	 * Установить прозрачность фона (0.0 - 1.0, где 0.0 = полностью прозрачный, 1.0 = полностью непрозрачный)
 	 */
 	public void setBackgroundOpacity(float opacity) {
-		this.backgroundOpacity = Math.max(0.0f, Math.min(1.0f, opacity)); // Ограничиваем от 0 до 1
+		this.backgroundOpacity = Math.max(0.0f, Math.min(1.0f, opacity));
+		KksChatConfig.save(this);
 	}
 	
 	/**
@@ -296,22 +297,33 @@ public class KksChatHud {
 	 */
 	public void setModifyMessageText(boolean modify) {
 		this.modifyMessageText = modify;
+		KksChatConfig.save(this);
 	}
 
 	public int getDisplayTimeSeconds() { return displayTimeSeconds; }
-	public void setDisplayTimeSeconds(int seconds) { this.displayTimeSeconds = Math.max(1, Math.min(60, seconds)); }
+	public void setDisplayTimeSeconds(int seconds) {
+		this.displayTimeSeconds = Math.max(1, Math.min(60, seconds));
+		KksChatConfig.save(this);
+	}
 
 	public int getMaxVisibleMessages() { return maxVisibleMessages; }
-	public void setMaxVisibleMessages(int max) { this.maxVisibleMessages = Math.max(1, Math.min(50, max)); }
+	public void setMaxVisibleMessages(int max) {
+		this.maxVisibleMessages = Math.max(1, Math.min(50, max));
+		KksChatConfig.save(this);
+	}
 
 	public int getMaxHistorySize() { return maxHistorySize; }
 	public void setMaxHistorySize(int max) {
 		this.maxHistorySize = Math.max(50, Math.min(500, max));
 		ChatHistoryAppender.trimToMaxHistory(this);
+		KksChatConfig.save(this);
 	}
 
 	public int getChatPosition() { return chatPosition; }
-	public void setChatPosition(int position) { this.chatPosition = Math.max(0, Math.min(2, position)); }
+	public void setChatPosition(int position) {
+		this.chatPosition = Math.max(0, Math.min(5, position));
+		KksChatConfig.save(this);
+	}
 
 	public boolean isAntiSpamEnabled() { return antiSpamEnabled; }
 	public void setAntiSpamEnabled(boolean enabled) {
@@ -322,6 +334,7 @@ public class KksChatHud {
 		} else {
 			ChatHistoryAppender.explodeGroups(this);
 		}
+		KksChatConfig.save(this);
 	}
 
 	/**
@@ -336,6 +349,12 @@ public class KksChatHud {
 		this.maxHistorySize = 100;
 		this.chatPosition = 0;
 		this.antiSpamEnabled = true;
+		KksChatConfig.save(this);
+	}
+
+	/** Загружает настройки из файла конфига. */
+	public void loadConfig() {
+		KksChatConfig.load(this);
 	}
 }
 

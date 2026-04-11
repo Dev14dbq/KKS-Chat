@@ -3,17 +3,14 @@ package com.ddev14.kkschat.mixin.client;
 import com.ddev14.kkschat.KksChatHud;
 import com.ddev14.kkschat.KksChatModClient;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.Options;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.OptionsList;
 import net.minecraft.client.gui.components.StringWidget;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.ChatOptionsScreen;
 import net.minecraft.client.gui.screens.options.OptionsSubScreen;
 import net.minecraft.network.chat.Component;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -25,14 +22,6 @@ public class ChatOptionsScreenMixin {
 
 	@Shadow
 	protected OptionsList list;
-
-	@Shadow
-	@Final
-	protected Screen lastScreen;
-
-	@Shadow
-	@Final
-	protected Options options;
 
 	@Inject(method = "addContents()V", at = @At("TAIL"))
 	private void kkschat_addSettings(CallbackInfo ci) {
@@ -50,14 +39,37 @@ public class ChatOptionsScreenMixin {
 		).setColor(0xFFAAAAAA);
 		this.list.addSmall(header, null);
 
-		// Стилизация текста | Прозрачность фона
+		// Ряд 1: Стилизация текста | Анти-спам
 		boolean modifyText = hud.isModifyMessageText();
 		Button modifyTextBtn = Button.builder(
-			Component.literal("Стилизация текста: " + (modifyText ? "ВКЛ" : "ВЫКЛ")),
+			Component.literal("Стилизация: " + (modifyText ? "ВКЛ" : "ВЫКЛ")),
 			btn -> {
 				boolean next = !KksChatModClient.getHud().isModifyMessageText();
 				KksChatModClient.getHud().setModifyMessageText(next);
-				btn.setMessage(Component.literal("Стилизация текста: " + (next ? "ВКЛ" : "ВЫКЛ")));
+				btn.setMessage(Component.literal("Стилизация: " + (next ? "ВКЛ" : "ВЫКЛ")));
+			}
+		).width(150).build();
+
+		boolean antiSpam = hud.isAntiSpamEnabled();
+		Button antiSpamBtn = Button.builder(
+			Component.literal("Анти-спам: " + (antiSpam ? "ВКЛ" : "ВЫКЛ")),
+			btn -> {
+				boolean next = !KksChatModClient.getHud().isAntiSpamEnabled();
+				KksChatModClient.getHud().setAntiSpamEnabled(next);
+				btn.setMessage(Component.literal("Анти-спам: " + (next ? "ВКЛ" : "ВЫКЛ")));
+			}
+		).width(150).build();
+		this.list.addSmall(modifyTextBtn, antiSpamBtn);
+
+		// Ряд 2: Позиция | Прозрачность
+		String[] positions = {"По центру", "По центру сверху", "Слева сверху", "Слева снизу", "Справа сверху", "Справа снизу"};
+		int currentPos = hud.getChatPosition();
+		Button positionBtn = Button.builder(
+			Component.literal("Позиция: " + positions[currentPos]),
+			btn -> {
+				int next = (KksChatModClient.getHud().getChatPosition() + 1) % positions.length;
+				KksChatModClient.getHud().setChatPosition(next);
+				btn.setMessage(Component.literal("Позиция: " + positions[next]));
 			}
 		).width(150).build();
 
@@ -75,22 +87,9 @@ public class ChatOptionsScreenMixin {
 				KksChatModClient.getHud().setBackgroundOpacity((float) value);
 			}
 		};
-		this.list.addSmall(modifyTextBtn, opacitySlider);
+		this.list.addSmall(positionBtn, opacitySlider);
 
-		// Позиционирование чата
-		String[] positions = {"По центру", "По центру сверху", "Слева сверху", "Слева снизу", "Справа сверху", "Справа снизу"};
-		int currentPos = hud.getChatPosition();
-		Button positionBtn = Button.builder(
-			Component.literal("Позиция: " + positions[currentPos]),
-			btn -> {
-				int next = (KksChatModClient.getHud().getChatPosition() + 1) % positions.length;
-				KksChatModClient.getHud().setChatPosition(next);
-				btn.setMessage(Component.literal("Позиция: " + positions[next]));
-			}
-		).width(200).build();
-		this.list.addSmall(positionBtn, null);
-
-		// Время отображения | Макс. сообщений
+		// Ряд 3: Время показа | Макс. сообщений
 		int displayTime = hud.getDisplayTimeSeconds();
 		AbstractSliderButton displayTimeSlider = new AbstractSliderButton(
 			0, 0, 150, 20,
@@ -125,27 +124,5 @@ public class ChatOptionsScreenMixin {
 			}
 		};
 		this.list.addSmall(displayTimeSlider, maxVisibleSlider);
-
-		// Анти-спам | Сбросить настройки
-		boolean antiSpam = hud.isAntiSpamEnabled();
-		Button antiSpamBtn = Button.builder(
-			Component.literal("Анти-спам: " + (antiSpam ? "ВКЛ" : "ВЫКЛ")),
-			btn -> {
-				boolean next = !KksChatModClient.getHud().isAntiSpamEnabled();
-				KksChatModClient.getHud().setAntiSpamEnabled(next);
-				btn.setMessage(Component.literal("Анти-спам: " + (next ? "ВКЛ" : "ВЫКЛ")));
-			}
-		).width(150).build();
-
-		Screen parentScreen = this.lastScreen;
-		Options opts = this.options;
-		Button resetBtn = Button.builder(
-			Component.literal("Сбросить настройки"),
-			btn -> {
-				KksChatModClient.getHud().resetSettings();
-				Minecraft.getInstance().setScreen(new ChatOptionsScreen(parentScreen, opts));
-			}
-		).width(150).build();
-		this.list.addSmall(antiSpamBtn, resetBtn);
 	}
 }
