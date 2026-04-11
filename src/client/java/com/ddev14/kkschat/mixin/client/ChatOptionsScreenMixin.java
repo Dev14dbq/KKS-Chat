@@ -77,36 +77,18 @@ public class ChatOptionsScreenMixin {
 		};
 		this.list.addSmall(modifyTextBtn, opacitySlider);
 
-		// Размер шрифта | Позиционирование чата
-		float fontScale = hud.getFontScale();
-		AbstractSliderButton fontScaleSlider = new AbstractSliderButton(
-			0, 0, 150, 20,
-			Component.literal("Размер шрифта: " + String.format("%.1fx", fontScale)),
-			(fontScale - 0.5f) / 1.5f
-		) {
-			@Override
-			protected void updateMessage() {
-				float scale = (float) (value * 1.5 + 0.5);
-				setMessage(Component.literal("Размер шрифта: " + String.format("%.1fx", scale)));
-			}
-			@Override
-			protected void applyValue() {
-				KksChatModClient.getHud().setFontScale((float) (value * 1.5 + 0.5));
-			}
-		};
-
-		String[] positions = {"По центру", "Слева", "Справа"};
+		// Позиционирование чата
+		String[] positions = {"По центру", "По центру сверху", "Слева сверху", "Слева снизу", "Справа сверху", "Справа снизу"};
 		int currentPos = hud.getChatPosition();
 		Button positionBtn = Button.builder(
 			Component.literal("Позиция: " + positions[currentPos]),
 			btn -> {
-				int next = (KksChatModClient.getHud().getChatPosition() + 1) % 3;
+				int next = (KksChatModClient.getHud().getChatPosition() + 1) % positions.length;
 				KksChatModClient.getHud().setChatPosition(next);
-				String[] pos = {"По центру", "Слева", "Справа"};
-				btn.setMessage(Component.literal("Позиция: " + pos[next]));
+				btn.setMessage(Component.literal("Позиция: " + positions[next]));
 			}
-		).width(150).build();
-		this.list.addSmall(fontScaleSlider, positionBtn);
+		).width(200).build();
+		this.list.addSmall(positionBtn, null);
 
 		// Время отображения | Макс. сообщений
 		int displayTime = hud.getDisplayTimeSeconds();

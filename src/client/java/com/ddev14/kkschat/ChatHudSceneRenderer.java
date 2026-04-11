@@ -15,6 +15,7 @@ import net.minecraft.network.chat.Style;
 
 /**
  * Отрисовка истории в открытом чате и оверлея при закрытом.
+ * Поддерживает 6 позиций чата (центр/лево/право × верх/низ).
  */
 public final class ChatHudSceneRenderer {
 	private ChatHudSceneRenderer() {}
@@ -28,32 +29,31 @@ public final class ChatHudSceneRenderer {
 		int screenHeight = minecraft.getWindow().getGuiScaledHeight();
 		int screenWidth = minecraft.getWindow().getGuiScaledWidth();
 		Font font = minecraft.font;
-
-		int currentY = screenHeight - ChatLayout.BOTTOM_OFFSET;
-		int spacing = 2;
-		int minY = 20;
-
+		int chatPosition = hud.getChatPosition();
+		boolean topAnchor = ChatLayout.isTopPosition(chatPosition);
 		long displayTimeMs = hud.displayTimeSeconds * 1000L;
 
-		for (int i = hud.messageHistory.size() - 1; i >= 0 && currentY > minY; i--) {
+		int currentY = topAnchor ? ChatLayout.TOP_OFFSET : screenHeight - ChatLayout.BOTTOM_OFFSET;
+		int spacing = 2;
+
+		for (int i = hud.messageHistory.size() - 1; i >= 0; i--) {
 			ChatMessageEntry entry = hud.messageHistory.get(i);
-			if (entry == null || entry.message == null) {
-				continue;
-			}
+			if (entry == null || entry.message == null) continue;
 
 			float alpha = ChatDisplayTiming.alphaForDisplayDuration(entry, now, hud.displayTimeSeconds);
-			if (alpha < 0f) {
-				break;
-			}
+			if (alpha < 0f) break;
 
-			int messageHeight = ChatMessageBoxPainter.renderSingleMessage(guiGraphics, font, screenWidth, currentY, entry, alpha,
-					hud.backgroundOpacity, hud.messageBounds);
+			int messageHeight = ChatMessageBoxPainter.renderSingleMessage(guiGraphics, font, screenWidth, currentY,
+					entry, alpha, hud.backgroundOpacity, hud.messageBounds, chatPosition, topAnchor);
 
-			currentY -= messageHeight + spacing;
+			currentY = topAnchor
+					? currentY + messageHeight + spacing
+					: currentY - messageHeight - spacing;
 
-			if (currentY <= minY) {
-				break;
-			}
+			boolean outOfBounds = topAnchor
+					? currentY > screenHeight - 20
+					: currentY < 20;
+			if (outOfBounds) break;
 		}
 
 		if (hud.messageHistory.isEmpty()
@@ -74,6 +74,9 @@ public final class ChatHudSceneRenderer {
 		Font font = minecraft.font;
 		int screenWidth = minecraft.getWindow().getGuiScaledWidth();
 		int screenHeight = minecraft.getWindow().getGuiScaledHeight();
+		int chatPosition = hud.getChatPosition();
+		boolean topAnchor = ChatLayout.isTopPosition(chatPosition);
+
 		int startIndex = Math.max(0, hud.messageHistory.size() - hud.scrollOffset - hud.maxVisibleMessages);
 		int endIndex = hud.messageHistory.size() - hud.scrollOffset;
 
@@ -81,92 +84,98 @@ public final class ChatHudSceneRenderer {
 			return;
 		}
 
-		int currentY = screenHeight - ChatLayout.BOTTOM_OFFSET;
+		int currentY = topAnchor ? ChatLayout.TOP_OFFSET : screenHeight - ChatLayout.BOTTOM_OFFSET;
 		int spacing = 2;
 
+		// Заголовок "ещё N сообщений"
 		if (startIndex > 0 && !hud.collapsedMessagesExpanded) {
 			ChatMessageEntry collapsedEntry = createCollapsedEntry(startIndex);
 			if (collapsedEntry != null) {
-				int messageHeight = ChatMessageBoxPainter.renderSingleMessage(guiGraphics, font, screenWidth, currentY, collapsedEntry, 1.0f,
-						hud.backgroundOpacity, hud.messageBounds);
-
+				int messageHeight = renderEntry(guiGraphics, font, screenWidth, currentY,
+						collapsedEntry, 1.0f, hud, chatPosition, topAnchor);
 				int boxWidth = ChatMessageBoxPainter.calculateMessageWidth(font, collapsedEntry.message);
-				int x = (screenWidth - boxWidth) / 2;
-				hud.messageBounds.put(-1, new MessageBounds(x, currentY - messageHeight, boxWidth, messageHeight, -1));
-
-				currentY -= messageHeight + spacing;
+				int x = ChatMessageBoxPainter.calculateX(screenWidth, boxWidth, chatPosition);
+				int boundsY = topAnchor ? currentY : currentY - messageHeight;
+				hud.messageBounds.put(-1, new MessageBounds(x, boundsY, boxWidth, messageHeight, -1));
+				currentY = advance(currentY, messageHeight, spacing, topAnchor);
 			}
 		} else if (startIndex > 0 && hud.collapsedMessagesExpanded) {
 			for (int j = startIndex - 1; j >= 0; j--) {
-				ChatMessageEntry collapsedMsg = hud.messageHistory.get(j);
-				if (collapsedMsg == null || collapsedMsg.message == null) {
-					continue;
-				}
-				if (currentY <= 0) {
-					break;
-				}
-				int msgHeight = ChatMessageBoxPainter.renderSingleMessage(guiGraphics, font, screenWidth, currentY, collapsedMsg, 1.0f,
-						hud.backgroundOpacity, hud.messageBounds);
-				int msgWidth = ChatMessageBoxPainter.calculateMessageWidth(font, collapsedMsg.message);
-				int msgX = (screenWidth - msgWidth) / 2;
-				hud.messageBounds.put(j, new MessageBounds(msgX, currentY - msgHeight, msgWidth, msgHeight, j));
-				currentY -= msgHeight + spacing;
+				ChatMessageEntry msg = hud.messageHistory.get(j);
+				if (msg == null || msg.message == null) continue;
+				if (isOutOfBounds(currentY, screenHeight, topAnchor)) break;
+				int msgHeight = renderEntry(guiGraphics, font, screenWidth, currentY,
+						msg, 1.0f, hud, chatPosition, topAnchor);
+				int msgWidth = ChatMessageBoxPainter.calculateMessageWidth(font, msg.message);
+				int msgX = ChatMessageBoxPainter.calculateX(screenWidth, msgWidth, chatPosition);
+				int boundsY = topAnchor ? currentY : currentY - msgHeight;
+				hud.messageBounds.put(j, new MessageBounds(msgX, boundsY, msgWidth, msgHeight, j));
+				currentY = advance(currentY, msgHeight, spacing, topAnchor);
 			}
 		}
 
-		for (int i = endIndex - 1; i >= startIndex && currentY > 0; i--) {
+		for (int i = endIndex - 1; i >= startIndex; i--) {
+			if (isOutOfBounds(currentY, screenHeight, topAnchor)) break;
 			ChatMessageEntry entry = hud.messageHistory.get(i);
-			if (entry == null || entry.message == null) {
-				continue;
-			}
+			if (entry == null || entry.message == null) continue;
 
-			if (entry.isExpanded && entry.repeatCount > 1) {
-				if (entry.expandedMessages != null && !entry.expandedMessages.isEmpty()) {
-					for (int repeat = 0; repeat < entry.expandedMessages.size() && currentY > 0; repeat++) {
-						ChatMessageEntry expandedEntry = entry.expandedMessages.get(repeat);
-						if (expandedEntry != null && expandedEntry.message != null) {
-							float lineAlpha = 1.0f;
-							int messageHeight = ChatMessageBoxPainter.renderSingleMessage(guiGraphics, font, screenWidth, currentY, expandedEntry, lineAlpha,
-									hud.backgroundOpacity, hud.messageBounds);
-							int boxWidth = ChatMessageBoxPainter.calculateMessageWidth(font, expandedEntry.message);
-							int x = (screenWidth - boxWidth) / 2;
-							hud.messageBounds.put(i * 1000 + repeat, new MessageBounds(x, currentY - messageHeight, boxWidth, messageHeight, i));
-							currentY -= messageHeight + spacing;
-						}
-					}
-				} else {
-				for (int repeat = 0; repeat < entry.repeatCount && currentY > 0; repeat++) {
-						int messageHeight = ChatMessageBoxPainter.renderSingleMessage(guiGraphics, font, screenWidth, currentY, entry, 1.0f,
-								hud.backgroundOpacity, hud.messageBounds);
-						int boxWidth = ChatMessageBoxPainter.calculateMessageWidth(font, entry.message);
-						int x = (screenWidth - boxWidth) / 2;
-						hud.messageBounds.put(i * 1000 + repeat, new MessageBounds(x, currentY - messageHeight, boxWidth, messageHeight, i));
-						currentY -= messageHeight + spacing;
-					}
+			if (entry.isExpanded && entry.repeatCount > 1
+					&& entry.expandedMessages != null && !entry.expandedMessages.isEmpty()) {
+				for (int repeat = 0; repeat < entry.expandedMessages.size(); repeat++) {
+					if (isOutOfBounds(currentY, screenHeight, topAnchor)) break;
+					ChatMessageEntry sub = entry.expandedMessages.get(repeat);
+					if (sub == null || sub.message == null) continue;
+					int h = renderEntry(guiGraphics, font, screenWidth, currentY,
+							sub, 1.0f, hud, chatPosition, topAnchor);
+					int bw = ChatMessageBoxPainter.calculateMessageWidth(font, sub.message);
+					int bx = ChatMessageBoxPainter.calculateX(screenWidth, bw, chatPosition);
+					int by = topAnchor ? currentY : currentY - h;
+					hud.messageBounds.put(i * 1000 + repeat, new MessageBounds(bx, by, bw, h, i));
+					currentY = advance(currentY, h, spacing, topAnchor);
+				}
+			} else if (entry.isExpanded && entry.repeatCount > 1) {
+				for (int repeat = 0; repeat < entry.repeatCount; repeat++) {
+					if (isOutOfBounds(currentY, screenHeight, topAnchor)) break;
+					int h = renderEntry(guiGraphics, font, screenWidth, currentY,
+							entry, 1.0f, hud, chatPosition, topAnchor);
+					int bw = ChatMessageBoxPainter.calculateMessageWidth(font, entry.message);
+					int bx = ChatMessageBoxPainter.calculateX(screenWidth, bw, chatPosition);
+					int by = topAnchor ? currentY : currentY - h;
+					hud.messageBounds.put(i * 1000 + repeat, new MessageBounds(bx, by, bw, h, i));
+					currentY = advance(currentY, h, spacing, topAnchor);
 				}
 			} else {
-				int messageHeight = ChatMessageBoxPainter.renderSingleMessage(guiGraphics, font, screenWidth, currentY, entry, 1.0f,
-						hud.backgroundOpacity, hud.messageBounds);
-				int boxWidth = ChatMessageBoxPainter.calculateMessageWidth(font, entry.message);
-				int x = (screenWidth - boxWidth) / 2;
-				hud.messageBounds.put(i, new MessageBounds(x, currentY - messageHeight, boxWidth, messageHeight, i));
-				currentY -= messageHeight + spacing;
+				int h = renderEntry(guiGraphics, font, screenWidth, currentY,
+						entry, 1.0f, hud, chatPosition, topAnchor);
+				int bw = ChatMessageBoxPainter.calculateMessageWidth(font, entry.message);
+				int bx = ChatMessageBoxPainter.calculateX(screenWidth, bw, chatPosition);
+				int by = topAnchor ? currentY : currentY - h;
+				hud.messageBounds.put(i, new MessageBounds(bx, by, bw, h, i));
+				currentY = advance(currentY, h, spacing, topAnchor);
 			}
 		}
 	}
 
-	private static ChatMessageEntry createCollapsedEntry(int collapsedCount) {
-		if (collapsedCount <= 0) {
-			return null;
-		}
-		String collapsedText = collapsedCount + " more messages";
-		if (collapsedCount == 1) {
-			collapsedText = "1 more message";
-		}
-		MutableComponent collapsedMessage = Component.literal(collapsedText)
-				.withStyle(Style.EMPTY.withColor(ChatFormatting.GRAY));
+	private static int renderEntry(GuiGraphics g, Font font, int screenWidth, int currentY,
+			ChatMessageEntry entry, float alpha, KksChatHud hud, int chatPosition, boolean topAnchor) {
+		return ChatMessageBoxPainter.renderSingleMessage(g, font, screenWidth, currentY,
+				entry, alpha, hud.backgroundOpacity, hud.messageBounds, chatPosition, topAnchor);
+	}
 
-		ChatMessageEntry entry = new ChatMessageEntry(collapsedMessage, null, null, true, false, null);
+	private static int advance(int currentY, int height, int spacing, boolean topAnchor) {
+		return topAnchor ? currentY + height + spacing : currentY - height - spacing;
+	}
+
+	private static boolean isOutOfBounds(int currentY, int screenHeight, boolean topAnchor) {
+		return topAnchor ? currentY > screenHeight - 20 : currentY < 0;
+	}
+
+	private static ChatMessageEntry createCollapsedEntry(int collapsedCount) {
+		if (collapsedCount <= 0) return null;
+		String text = collapsedCount == 1 ? "1 more message" : collapsedCount + " more messages";
+		MutableComponent msg = Component.literal(text)
+				.withStyle(Style.EMPTY.withColor(ChatFormatting.GRAY));
+		ChatMessageEntry entry = new ChatMessageEntry(msg, null, null, true, false, null);
 		entry.isCollapsed = true;
 		entry.collapsedCount = collapsedCount;
 		return entry;

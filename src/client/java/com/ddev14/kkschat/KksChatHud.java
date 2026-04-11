@@ -49,7 +49,6 @@ public class KksChatHud {
 	int maxHistorySize = 100;
 	float backgroundOpacity = 0.3f; // Прозрачность фона (0.0 - 1.0, соответствует 0-100%)
 	int displayTimeSeconds = 5;
-	private float fontScale = 1.0f;
 	private int chatPosition = 0; // 0=по центру, 1=слева, 2=справа
 	private boolean antiSpamEnabled = true;
 	
@@ -311,9 +310,6 @@ public class KksChatHud {
 		ChatHistoryAppender.trimToMaxHistory(this);
 	}
 
-	public float getFontScale() { return fontScale; }
-	public void setFontScale(float scale) { this.fontScale = Math.max(0.5f, Math.min(2.0f, scale)); }
-
 	public int getChatPosition() { return chatPosition; }
 	public void setChatPosition(int position) { this.chatPosition = Math.max(0, Math.min(2, position)); }
 
@@ -338,7 +334,6 @@ public class KksChatHud {
 		this.displayTimeSeconds = 5;
 		this.maxVisibleMessages = 10;
 		this.maxHistorySize = 100;
-		this.fontScale = 1.0f;
 		this.chatPosition = 0;
 		this.antiSpamEnabled = true;
 	}

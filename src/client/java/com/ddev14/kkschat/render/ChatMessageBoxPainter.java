@@ -20,6 +20,18 @@ import java.util.Map;
 public final class ChatMessageBoxPainter {
 	private ChatMessageBoxPainter() {}
 
+	/**
+	 * Вычисляет X-координату блока сообщения в зависимости от позиции чата.
+	 * 0=центр-низ, 1=центр-верх, 2=лево-верх, 3=лево-низ, 4=право-верх, 5=право-низ
+	 */
+	public static int calculateX(int screenWidth, int boxWidth, int chatPosition) {
+		return switch (chatPosition) {
+			case 2, 3 -> ChatLayout.SIDE_MARGIN;
+			case 4, 5 -> screenWidth - boxWidth - ChatLayout.SIDE_MARGIN;
+			default -> (screenWidth - boxWidth) / 2;
+		};
+	}
+
 	public static int calculateMessageWidth(Font font, Component component) {
 		int fullTextWidth = font.width(component);
 		int avatarAreaWidth = ChatLayout.AVATAR_SIZE;
@@ -30,9 +42,13 @@ public final class ChatMessageBoxPainter {
 		return logicalTextWidth + totalNonTextWidth;
 	}
 
+	/**
+	 * @param startY  при topAnchor=false — нижняя граница блока; при topAnchor=true — верхняя
+	 * @param topAnchor  true для позиций «сверху», false для позиций «снизу»
+	 */
 	public static int renderSingleMessage(GuiGraphics guiGraphics, Font font, int screenWidth, int startY,
 			ChatMessageEntry entry, float alpha, float backgroundOpacity,
-			Map<Integer, MessageBounds> messageBounds) {
+			Map<Integer, MessageBounds> messageBounds, int chatPosition, boolean topAnchor) {
 		Component component = entry.message;
 		if (component == null || component.getString().isEmpty()) {
 			return 0;
@@ -76,7 +92,7 @@ public final class ChatMessageBoxPainter {
 		int logicalTextWidth = Math.min(ChatLayout.MAX_BOX_WIDTH - totalNonTextWidth, fullTextWidth);
 
 		int boxWidth = logicalTextWidth + totalNonTextWidth;
-		int x = (screenWidth - boxWidth) / 2;
+		int x = calculateX(screenWidth, boxWidth, chatPosition);
 
 		int textAreaStartX = x + leftNonText;
 		int maxTextWidth = logicalTextWidth;
@@ -89,7 +105,7 @@ public final class ChatMessageBoxPainter {
 		int textHeight = font.lineHeight * lines.size();
 		int contentHeight = entry.isJoinMessage ? textHeight : Math.max(ChatLayout.AVATAR_SIZE, textHeight);
 		int boxHeight = contentHeight + ChatLayout.VERTICAL_PADDING * 2;
-		int y = startY - boxHeight;
+		int y = topAnchor ? startY : startY - boxHeight;
 
 		int baseAlpha = (int) (backgroundOpacity * 255.0f);
 		int animatedAlpha = (int) (baseAlpha * alpha);
