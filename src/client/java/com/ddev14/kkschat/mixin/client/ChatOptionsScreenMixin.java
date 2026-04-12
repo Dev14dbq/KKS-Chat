@@ -23,6 +23,15 @@ public class ChatOptionsScreenMixin {
 	@Shadow
 	protected OptionsList list;
 
+	private static final String[] POSITION_KEYS = {
+		"kkschat.position.center",
+		"kkschat.position.center_top",
+		"kkschat.position.left_top",
+		"kkschat.position.left_bottom",
+		"kkschat.position.right_top",
+		"kkschat.position.right_bottom"
+	};
+
 	@Inject(method = "addContents()V", at = @At("TAIL"))
 	private void kkschat_addSettings(CallbackInfo ci) {
 		if (((Object) this).getClass() != ChatOptionsScreen.class) return;
@@ -33,76 +42,71 @@ public class ChatOptionsScreenMixin {
 		Minecraft mc = Minecraft.getInstance();
 		Font font = mc.font;
 
-		// Заголовок секции
 		StringWidget header = new StringWidget(
-			Component.literal("── KKS Chat ──"), font
-		).setColor(0xFFAAAAAA);
+			Component.translatable("kkschat.settings.header")
+				.withStyle(net.minecraft.ChatFormatting.GRAY), font
+		);
 		this.list.addSmall(header, null);
 
-		// Ряд 1: Стилизация текста | Анти-спам
-		boolean modifyText = hud.isModifyMessageText();
-		Button modifyTextBtn = Button.builder(
-			Component.literal("Стилизация: " + (modifyText ? "ВКЛ" : "ВЫКЛ")),
+		// Ряд 1: KKS Chat вкл/выкл | Стилизация
+		boolean enabled = hud.isEnabled();
+		Button enabledBtn = Button.builder(
+			enabledLabel(enabled),
 			btn -> {
-				boolean next = !KksChatModClient.getHud().isModifyMessageText();
-				KksChatModClient.getHud().setModifyMessageText(next);
-				btn.setMessage(Component.literal("Стилизация: " + (next ? "ВКЛ" : "ВЫКЛ")));
+				boolean next = !KksChatModClient.getHud().isEnabled();
+				KksChatModClient.getHud().setEnabled(next);
+				btn.setMessage(enabledLabel(next));
 			}
 		).width(150).build();
 
+		Button modifyTextBtn = Button.builder(
+			styleLabel(hud.isModifyMessageText()),
+			btn -> {}
+		).width(150).build();
+		modifyTextBtn.active = false;
+		this.list.addSmall(enabledBtn, modifyTextBtn);
+
+		// Ряд 2: Анти-спам | Позиция
 		boolean antiSpam = hud.isAntiSpamEnabled();
 		Button antiSpamBtn = Button.builder(
-			Component.literal("Анти-спам: " + (antiSpam ? "ВКЛ" : "ВЫКЛ")),
+			antiSpamLabel(antiSpam),
 			btn -> {
 				boolean next = !KksChatModClient.getHud().isAntiSpamEnabled();
 				KksChatModClient.getHud().setAntiSpamEnabled(next);
-				btn.setMessage(Component.literal("Анти-спам: " + (next ? "ВКЛ" : "ВЫКЛ")));
+				btn.setMessage(antiSpamLabel(next));
 			}
 		).width(150).build();
-		this.list.addSmall(modifyTextBtn, antiSpamBtn);
 
-		// Ряд 2: Позиция | Прозрачность
-		String[] positions = {"По центру", "По центру сверху", "Слева сверху", "Слева снизу", "Справа сверху", "Справа снизу"};
+		// Ряд 3: Позиция | Прозрачность
 		int currentPos = hud.getChatPosition();
 		Button positionBtn = Button.builder(
-			Component.literal("Позиция: " + positions[currentPos]),
+			positionLabel(currentPos),
 			btn -> {
-				int next = (KksChatModClient.getHud().getChatPosition() + 1) % positions.length;
+				int next = (KksChatModClient.getHud().getChatPosition() + 1) % POSITION_KEYS.length;
 				KksChatModClient.getHud().setChatPosition(next);
-				btn.setMessage(Component.literal("Позиция: " + positions[next]));
+				btn.setMessage(positionLabel(next));
 			}
 		).width(150).build();
 
 		AbstractSliderButton opacitySlider = new AbstractSliderButton(
 			0, 0, 150, 20,
-			Component.literal("Прозрачность: " + (int) Math.round(hud.getBackgroundOpacity() * 100) + "%"),
+			opacityLabel(hud.getBackgroundOpacity()),
 			hud.getBackgroundOpacity()
 		) {
-			@Override
-			protected void updateMessage() {
-				setMessage(Component.literal("Прозрачность: " + (int) Math.round(value * 100) + "%"));
-			}
-			@Override
-			protected void applyValue() {
-				KksChatModClient.getHud().setBackgroundOpacity((float) value);
-			}
+			@Override protected void updateMessage() { setMessage(opacityLabel((float) value)); }
+			@Override protected void applyValue() { KksChatModClient.getHud().setBackgroundOpacity((float) value); }
 		};
-		this.list.addSmall(positionBtn, opacitySlider);
 
-		// Ряд 3: Время показа | Макс. сообщений
 		int displayTime = hud.getDisplayTimeSeconds();
 		AbstractSliderButton displayTimeSlider = new AbstractSliderButton(
 			0, 0, 150, 20,
-			Component.literal("Время показа: " + displayTime + "с"),
+			displayTimeLabel(displayTime),
 			(displayTime - 1) / 59.0
 		) {
-			@Override
-			protected void updateMessage() {
-				int secs = (int) Math.round(value * 59) + 1;
-				setMessage(Component.literal("Время показа: " + secs + "с"));
+			@Override protected void updateMessage() {
+				setMessage(displayTimeLabel((int) Math.round(value * 59) + 1));
 			}
-			@Override
-			protected void applyValue() {
+			@Override protected void applyValue() {
 				KksChatModClient.getHud().setDisplayTimeSeconds((int) Math.round(value * 59) + 1);
 			}
 		};
@@ -110,19 +114,54 @@ public class ChatOptionsScreenMixin {
 		int maxHistory = hud.getMaxHistorySize();
 		AbstractSliderButton maxVisibleSlider = new AbstractSliderButton(
 			0, 0, 150, 20,
-			Component.literal("Макс. сообщений: " + maxHistory),
+			maxMessagesLabel(maxHistory),
 			(maxHistory - 50) / 450.0
 		) {
-			@Override
-			protected void updateMessage() {
-				int max = (int) Math.round(value * 450) + 50;
-				setMessage(Component.literal("Макс. сообщений: " + max));
+			@Override protected void updateMessage() {
+				setMessage(maxMessagesLabel((int) Math.round(value * 450) + 50));
 			}
-			@Override
-			protected void applyValue() {
+			@Override protected void applyValue() {
 				KksChatModClient.getHud().setMaxHistorySize((int) Math.round(value * 450) + 50);
 			}
 		};
-		this.list.addSmall(displayTimeSlider, maxVisibleSlider);
+
+		this.list.addSmall(antiSpamBtn, positionBtn);
+		this.list.addSmall(opacitySlider, displayTimeSlider);
+
+		// Ряд 4: Макс. сообщений
+		this.list.addSmall(maxVisibleSlider, null);
+	}
+
+	private static Component onOff(boolean on) {
+		return Component.translatable(on ? "kkschat.settings.on" : "kkschat.settings.off");
+	}
+
+	private static Component enabledLabel(boolean on) {
+		return Component.translatable("kkschat.settings.enabled", onOff(on));
+	}
+
+	private static Component styleLabel(boolean on) {
+		return Component.translatable("kkschat.settings.styling", onOff(on));
+	}
+
+	private static Component antiSpamLabel(boolean on) {
+		return Component.translatable("kkschat.settings.antispam", onOff(on));
+	}
+
+	private static Component positionLabel(int pos) {
+		return Component.translatable("kkschat.settings.position",
+			Component.translatable(POSITION_KEYS[pos]));
+	}
+
+	private static Component opacityLabel(float v) {
+		return Component.translatable("kkschat.settings.opacity", (int) Math.round(v * 100));
+	}
+
+	private static Component displayTimeLabel(int secs) {
+		return Component.translatable("kkschat.settings.display_time", secs);
+	}
+
+	private static Component maxMessagesLabel(int max) {
+		return Component.translatable("kkschat.settings.max_messages", max);
 	}
 }

@@ -21,17 +21,9 @@ public abstract class ChatListenerMixin {
 	 * ВАЖНО: Мы сохраняем сообщение в наш HUD, но не блокируем здесь,
 	 * так как блокировка происходит в ChatComponentMixin.addMessage()
 	 */
-	@Inject(
-		method = "handleSystemMessage",
-		at = @At("HEAD")
-	)
-	private void kkschat$onSystemMessage(Component message, boolean overlay, CallbackInfo ci) {
-		// Всегда сохраняем системные сообщения в наш HUD (даже когда выключен)
-		// Это перехватывает все системные сообщения, включая сообщения от модов при входе в мир
-		// Блокировка добавления в стандартный чат происходит в ChatComponentMixin.addMessage()
-		if (message != null && !message.getString().isEmpty()) {
-			KksChatModClient.getHud().onSystemMessage(message);
-		}
-	}
+	// Намеренно не перехватываем handleSystemMessage здесь:
+	// Fabric API ALLOW_GAME уже обрабатывает серверные системные сообщения в KksChatModClient.
+	// Если добавить вызов onSystemMessage ещё и здесь, сообщение отображается дважды —
+	// ChatListenerMixin.HEAD срабатывает ДО того как ALLOW_GAME успевает отменить обработку.
 }
 

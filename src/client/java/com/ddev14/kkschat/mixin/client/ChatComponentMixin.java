@@ -24,24 +24,26 @@ public abstract class ChatComponentMixin {
 	}
 	
 	/**
-	 * Перехватывает все сообщения, которые добавляются в чат напрямую
-	 * Это ловит сообщения, которые не проходят через ClientReceiveMessageEvents или ChatListener
-	 * (например, сообщения от модов при входе в мир, которые добавляются напрямую в ChatComponent)
-	 * 
-	 * Блокируем добавление сообщения в стандартный чат, если наш чат включен.
+	 * Перехватывает клиентские системные сообщения (от модов и т.д.),
+	 * добавляемые напрямую в ChatComponent в 26.1+.
 	 */
-	@Inject(
-		method = "addMessage(Lnet/minecraft/network/chat/Component;)V",
-		at = @At("HEAD"),
-		cancellable = true
-	)
-	private void kkschat$onAddMessage(Component message, CallbackInfo ci) {
-		// Проверяем, что сообщение не пустое
+	@Inject(method = "addClientSystemMessage", at = @At("HEAD"), cancellable = true)
+	private void kkschat$onAddClientSystemMessage(Component message, CallbackInfo ci) {
 		if (message != null && !message.getString().isEmpty()) {
-			// Всегда сохраняем сообщение в наш HUD (даже когда выключен)
 			KksChatModClient.getHud().onSystemMessage(message);
-			
-			// Блокируем добавление в стандартный чат, если наш чат включен
+			if (KksChatModClient.getHud().isEnabled()) {
+				ci.cancel();
+			}
+		}
+	}
+
+	/**
+	 * Перехватывает серверные системные сообщения, добавляемые напрямую в ChatComponent в 26.1+.
+	 */
+	@Inject(method = "addServerSystemMessage", at = @At("HEAD"), cancellable = true)
+	private void kkschat$onAddServerSystemMessage(Component message, CallbackInfo ci) {
+		if (message != null && !message.getString().isEmpty()) {
+			KksChatModClient.getHud().onSystemMessage(message);
 			if (KksChatModClient.getHud().isEnabled()) {
 				ci.cancel();
 			}

@@ -1,7 +1,7 @@
 {
 	"schemaVersion": 1,
 	"id": "kks-chat",
-	"version": "1.1.4",
+	"version": "1.2.5",
 	"name": "KKS Chat",
 	"description": "Chat in the center of the screen with player avatars. Whisper messages, SkinsRestorer support and anti-spam.",
 	"authors": [
@@ -34,8 +34,8 @@
 	],
 	"depends": {
 		"fabricloader": ">=0.17.3",
-		"minecraft": "~1.21.9",
-		"java": ">=21",
+		"minecraft": "~26.1.1",
+		"java": ">=25",
 		"fabric-api": "*"
 	},
 	"suggests": {

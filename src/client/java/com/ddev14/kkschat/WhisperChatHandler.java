@@ -2,6 +2,7 @@ package com.ddev14.kkschat;
 
 import com.ddev14.kkschat.chat.ChatMessageEntry;
 import com.ddev14.kkschat.chat.LegacyAmpersandFormatting;
+import com.ddev14.kkschat.chat.MessageType;
 import com.ddev14.kkschat.chat.PlayerNameResolver;
 import com.ddev14.kkschat.skin.PlayerInfoLookup;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -16,8 +17,22 @@ public final class WhisperChatHandler {
 	private WhisperChatHandler() {}
 
 	static void handleWhisper(KksChatHud hud, Component component, String raw) {
-				
-				// Парсим whisper сообщение
+		if (SystemChatHandler.isVisiblyEmpty(component)) {
+			return;
+		}
+
+		// Если стилизация выключена — показываем оригинальный компонент без переформатирования
+		if (!hud.isModifyMessageText()) {
+			hud.messageComponent = component;
+			hud.senderInfo = null;
+			ChatMessageEntry e = hud.addToHistoryWhisper(component, null, null, null);
+			long now = System.currentTimeMillis();
+			if (e != null && e.repeatCount > 1) { hud.lastMessageTime = now; }
+			else { hud.firstMessageTime = now; hud.lastMessageTime = now; }
+			return;
+		}
+
+		// Парсим whisper сообщение
 				// Форматы: "Player whispers to you: message" или "Player whispers: message"
 				// Или на русском: "Игрок шепчет вам: сообщение" или "Игрок шепчет: сообщение"
 				// Или когда игрок сам шепчет: "You whisper to Player: message" или "Вы прошептали Игроку: сообщение"
@@ -295,8 +310,7 @@ public final class WhisperChatHandler {
 				MutableComponent separator = Component.literal(" ")
 						.withStyle(Style.EMPTY.withColor(ChatFormatting.WHITE));
 				
-				hud.messageComponent = whisperPrefix.append(nameComponent).append(separator).append(messageComponent);
-				hud.systemMessage = false;
+			hud.messageComponent = whisperPrefix.append(nameComponent).append(separator).append(messageComponent);
 				
 				// Получаем PlayerInfo для отправителя и получателя
 				PlayerInfo senderInfo = null;
@@ -327,9 +341,7 @@ public final class WhisperChatHandler {
 				
 				hud.senderInfo = senderInfo;
 				
-				// Сохраняем в историю как whisper сообщение
-				// Передаем имя отправителя для повторного поиска когда скин загрузится (важно для SkinsRestorer)
-				ChatMessageEntry whisperEntry = hud.addToHistoryWhisper(hud.messageComponent, senderInfo, receiverInfo, senderName);
+			ChatMessageEntry whisperEntry = hud.addToHistoryWhisper(hud.messageComponent, senderInfo, receiverInfo, senderName);
 				boolean isRepeat = whisperEntry != null && whisperEntry.repeatCount > 1;
 				
 				long now = System.currentTimeMillis();

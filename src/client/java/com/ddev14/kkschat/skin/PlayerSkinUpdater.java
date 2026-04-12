@@ -55,7 +55,7 @@ public final class PlayerSkinUpdater {
 				}
 			}
 
-			if (entry.isWhisper && entry.receiverInfo == null) {
+			if (entry.isWhisper() && entry.receiverInfo == null) {
 				if (minecraft.player != null) {
 					PlayerInfo receiverInfo = connection.getPlayerInfo(minecraft.player.getUUID());
 					if (receiverInfo != null) {

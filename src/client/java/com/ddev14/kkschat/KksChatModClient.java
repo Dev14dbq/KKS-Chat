@@ -2,7 +2,8 @@ package com.ddev14.kkschat;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.minecraft.resources.Identifier;
 
 public class KksChatModClient implements ClientModInitializer {
 
@@ -19,12 +20,11 @@ public class KksChatModClient implements ClientModInitializer {
 	}
 
 	@Override
-	@SuppressWarnings("deprecation")
 	public void onInitializeClient() {
-		// Render our custom chat box above the hotbar.
-		// Note: HudRenderCallback is deprecated but still functional in 1.21.9
-		// TODO: Update to new API when available
-		HudRenderCallback.EVENT.register((guiGraphics, deltaTracker) -> HUD.onHudRender(guiGraphics));
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath("kks-chat", "chat_hud"),
+			(guiGraphics, deltaTracker) -> HUD.onHudRender(guiGraphics)
+		);
 
 		// Block vanilla chat и одновременно прокинуть сообщения в наш HUD
 		ClientReceiveMessageEvents.ALLOW_GAME.register((message, overlay) -> {

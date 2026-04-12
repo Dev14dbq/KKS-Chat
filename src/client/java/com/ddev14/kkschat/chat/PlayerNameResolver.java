@@ -141,11 +141,17 @@ public final class PlayerNameResolver {
 
 		String name = nameBuilder.toString();
 
-		if (isValidPlayerName(name)) {
-			return name;
+		if (!isValidPlayerName(name)) {
+			return null;
 		}
 
-		return null;
+		// If the name is immediately followed by ':' it's a Minecraft namespace
+		// (e.g. "minecraft:overworld", "minecraft:day") — not a player name
+		if (end < text.length() && text.charAt(end) == ':') {
+			return null;
+		}
+
+		return name;
 	}
 
 	public static boolean isValidPlayerName(String name) {

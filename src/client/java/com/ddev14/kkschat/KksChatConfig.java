@@ -28,6 +28,7 @@ final class KksChatConfig {
 		int chatPosition;
 		boolean antiSpamEnabled;
 		boolean modifyMessageText;
+		boolean enabled = true;
 	}
 
 	static void save(KksChatHud hud) {
@@ -40,6 +41,7 @@ final class KksChatConfig {
 			d.chatPosition = hud.getChatPosition();
 			d.antiSpamEnabled = hud.isAntiSpamEnabled();
 			d.modifyMessageText = hud.isModifyMessageText();
+			d.enabled = hud.isEnabled();
 			Files.writeString(CONFIG_PATH, GSON.toJson(d), StandardCharsets.UTF_8);
 		} catch (IOException e) {
 			LoggerFactory.getLogger("KksChatConfig").warn("Failed to save config", e);
@@ -57,8 +59,9 @@ final class KksChatConfig {
 			hud.maxHistorySize = Math.max(50, Math.min(500, d.maxHistorySize));
 			hud.maxVisibleMessages = Math.max(1, Math.min(50, d.maxVisibleMessages));
 			hud.chatPosition = Math.max(0, Math.min(5, d.chatPosition));
-			hud.antiSpamEnabled = d.antiSpamEnabled;
-			hud.modifyMessageText = d.modifyMessageText;
+		hud.antiSpamEnabled = d.antiSpamEnabled;
+		hud.modifyMessageText = d.modifyMessageText;
+		hud.enabled = d.enabled;
 		} catch (IOException e) {
 			LoggerFactory.getLogger("KksChatConfig").warn("Failed to load config", e);
 		}

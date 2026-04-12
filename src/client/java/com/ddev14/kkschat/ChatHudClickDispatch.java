@@ -48,7 +48,7 @@ public final class ChatHudClickDispatch {
 				if (historyIndex >= 0 && historyIndex < hud.messageHistory.size()) {
 					ChatMessageEntry entry = hud.messageHistory.get(historyIndex);
 					if (entry != null) {
-						if (entry.isAchievement && entry.message != null) {
+						if (entry.isAchievement() && entry.message != null) {
 							hud.shouldOpenAdvancements = true;
 							return true;
 						}
@@ -65,21 +65,20 @@ public final class ChatHudClickDispatch {
 								int relativeX = mx - bounds.textX;
 								int relativeY = my - bounds.textY;
 
-								List<FormattedCharSequence> lines = font.split(bounds.component, bounds.maxTextWidth);
-								int lineIndex = relativeY / font.lineHeight;
-								if (lineIndex >= 0 && lineIndex < lines.size()) {
-									FormattedCharSequence line = lines.get(lineIndex);
-									net.minecraft.client.StringSplitter splitter = font.getSplitter();
-									Style style = splitter.componentStyleAtWidth(line, relativeX);
+							List<FormattedCharSequence> lines = font.split(bounds.component, bounds.maxTextWidth);
+							int lineIndex = relativeY / font.lineHeight;
+							if (lineIndex >= 0 && lineIndex < lines.size()) {
+								FormattedCharSequence line = lines.get(lineIndex);
+								Style style = styleAtWidth(font, line, relativeX);
 
-									if (style != null) {
-										ClickEvent clickEvent = style.getClickEvent();
-										if (clickEvent != null) {
-											handleClickEvent(clickEvent);
-											return true;
-										}
+								if (style != null) {
+									ClickEvent clickEvent = style.getClickEvent();
+									if (clickEvent != null) {
+										handleClickEvent(clickEvent);
+										return true;
 									}
 								}
+							}
 							}
 						}
 					}
@@ -90,88 +89,60 @@ public final class ChatHudClickDispatch {
 		return false;
 	}
 
+	private static Style styleAtWidth(Font font, FormattedCharSequence line, int targetX) {
+		final Style[] result = {null};
+		final int[] px = {0};
+		line.accept((index, style, codePoint) -> {
+			int w = font.width(String.valueOf(Character.toChars(codePoint)));
+			px[0] += w;
+			if (px[0] > targetX) {
+				result[0] = style;
+				return false;
+			}
+			return true;
+		});
+		return result[0];
+	}
+
+	/**
+	 * В MC 26.1 ClickEvent — интерфейс с конкретными record-реализациями.
+	 * Каждый тип несёт свои данные через типизированные accessor-методы.
+	 */
 	public static void handleClickEvent(ClickEvent clickEvent) {
-		if (clickEvent == null) {
-			return;
-		}
+		if (clickEvent == null) return;
 
 		Minecraft minecraft = Minecraft.getInstance();
-		ClickEvent.Action action = null;
-		String value = null;
 
-		try {
+		if (clickEvent instanceof ClickEvent.RunCommand run) {
+			if (minecraft.player != null) {
+				String cmd = run.command();
+				if (cmd.startsWith("/")) cmd = cmd.substring(1);
+				minecraft.player.connection.sendCommand(cmd);
+			}
+		} else if (clickEvent instanceof ClickEvent.SuggestCommand suggest) {
+			if (minecraft.screen instanceof ChatScreen chatScreen) {
+				String cmd = suggest.command();
+				if (!cmd.startsWith("/")) cmd = "/" + cmd;
+				chatScreen.handleChatInput(cmd, true);
+			}
+		} else if (clickEvent instanceof ClickEvent.OpenUrl openUrl) {
+			if (minecraft.options.chatLinks().get()) {
+				try {
+					java.awt.Desktop.getDesktop().browse(openUrl.uri());
+				} catch (Exception e) {
+					minecraft.keyboardHandler.setClipboard(openUrl.uri().toString());
+				}
+			}
+		} else if (clickEvent instanceof ClickEvent.OpenFile openFile) {
 			try {
-				java.lang.reflect.Method actionMethod = clickEvent.getClass().getMethod("action");
-				action = (ClickEvent.Action) actionMethod.invoke(clickEvent);
-			} catch (Exception e1) {
-				try {
-					java.lang.reflect.Method getActionMethod = clickEvent.getClass().getMethod("getAction");
-					action = (ClickEvent.Action) getActionMethod.invoke(clickEvent);
-				} catch (Exception e2) {
-					try {
-						java.lang.reflect.Field actionField = clickEvent.getClass().getField("action");
-						action = (ClickEvent.Action) actionField.get(clickEvent);
-					} catch (Exception ignored) {
-					}
+				java.io.File file = openFile.file();
+				if (file.exists()) {
+					java.awt.Desktop.getDesktop().open(file);
 				}
+			} catch (Exception ignored) {
 			}
-
-			try {
-				java.lang.reflect.Method valueMethod = clickEvent.getClass().getMethod("value");
-				value = (String) valueMethod.invoke(clickEvent);
-			} catch (Exception e1) {
-				try {
-					java.lang.reflect.Method getValueMethod = clickEvent.getClass().getMethod("getValue");
-					value = (String) getValueMethod.invoke(clickEvent);
-				} catch (Exception e2) {
-					try {
-						java.lang.reflect.Field valueField = clickEvent.getClass().getField("value");
-						value = (String) valueField.get(clickEvent);
-					} catch (Exception ignored) {
-					}
-				}
-			}
-		} catch (Exception ignored) {
-		}
-
-		if (action == null || value == null || value.isEmpty()) {
-			return;
-		}
-
-		switch (action) {
-			case OPEN_URL -> {
-				if (minecraft.options.chatLinks().get()) {
-					try {
-						java.net.URI uri = new java.net.URI(value);
-						java.awt.Desktop.getDesktop().browse(uri);
-					} catch (Exception e) {
-						minecraft.keyboardHandler.setClipboard(value);
-					}
-				}
-			}
-			case OPEN_FILE -> {
-				try {
-					java.io.File file = new java.io.File(value);
-					if (file.exists()) {
-						java.awt.Desktop.getDesktop().open(file);
-					}
-				} catch (Exception ignored) {
-				}
-			}
-			case RUN_COMMAND, SUGGEST_COMMAND -> {
-				if (minecraft.player != null) {
-					if (action == ClickEvent.Action.RUN_COMMAND) {
-						minecraft.player.connection.sendCommand(value);
-					} else {
-						if (minecraft.screen instanceof ChatScreen) {
-							((ChatScreen) minecraft.screen).handleChatInput(value, true);
-						}
-					}
-				}
-			}
-			case COPY_TO_CLIPBOARD -> minecraft.keyboardHandler.setClipboard(value);
-			default -> {
-			}
+		} else if (clickEvent instanceof ClickEvent.CopyToClipboard copy) {
+			minecraft.keyboardHandler.setClipboard(copy.value());
 		}
 	}
 }

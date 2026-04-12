@@ -8,7 +8,7 @@ import com.ddev14.kkschat.render.ChatMessageBoxPainter;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
@@ -20,7 +20,7 @@ import net.minecraft.network.chat.Style;
 public final class ChatHudSceneRenderer {
 	private ChatHudSceneRenderer() {}
 
-	public static void renderClosedOverlay(KksChatHud hud, GuiGraphics guiGraphics, Minecraft minecraft) {
+	public static void renderClosedOverlay(KksChatHud hud, GuiGraphicsExtractor guiGraphics, Minecraft minecraft) {
 		if (hud.messageHistory.isEmpty()) {
 			return;
 		}
@@ -43,8 +43,8 @@ public final class ChatHudSceneRenderer {
 			float alpha = ChatDisplayTiming.alphaForDisplayDuration(entry, now, hud.displayTimeSeconds);
 			if (alpha < 0f) break;
 
-			int messageHeight = ChatMessageBoxPainter.renderSingleMessage(guiGraphics, font, screenWidth, currentY,
-					entry, alpha, hud.backgroundOpacity, hud.messageBounds, chatPosition, topAnchor);
+		int messageHeight = ChatMessageBoxPainter.renderSingleMessage(guiGraphics, font, screenWidth, currentY,
+				entry, alpha, hud.backgroundOpacity, hud.messageBounds, chatPosition, topAnchor, false, Integer.MIN_VALUE);
 
 			currentY = topAnchor
 					? currentY + messageHeight + spacing
@@ -58,13 +58,12 @@ public final class ChatHudSceneRenderer {
 
 		if (hud.messageHistory.isEmpty()
 				|| (now - hud.messageHistory.get(hud.messageHistory.size() - 1).timestamp > displayTimeMs)) {
-			hud.messageComponent = null;
-			hud.senderInfo = null;
-			hud.systemMessage = false;
+		hud.messageComponent = null;
+		hud.senderInfo = null;
 		}
 	}
 
-	public static void renderOpenHistory(KksChatHud hud, GuiGraphics guiGraphics, Minecraft minecraft) {
+	public static void renderOpenHistory(KksChatHud hud, GuiGraphicsExtractor guiGraphics, Minecraft minecraft) {
 		if (hud.messageHistory.isEmpty()) {
 			return;
 		}
@@ -92,11 +91,7 @@ public final class ChatHudSceneRenderer {
 			ChatMessageEntry collapsedEntry = createCollapsedEntry(startIndex);
 			if (collapsedEntry != null) {
 				int messageHeight = renderEntry(guiGraphics, font, screenWidth, currentY,
-						collapsedEntry, 1.0f, hud, chatPosition, topAnchor);
-				int boxWidth = ChatMessageBoxPainter.calculateMessageWidth(font, collapsedEntry.message);
-				int x = ChatMessageBoxPainter.calculateX(screenWidth, boxWidth, chatPosition);
-				int boundsY = topAnchor ? currentY : currentY - messageHeight;
-				hud.messageBounds.put(-1, new MessageBounds(x, boundsY, boxWidth, messageHeight, -1));
+						collapsedEntry, 1.0f, hud, chatPosition, topAnchor, -1);
 				currentY = advance(currentY, messageHeight, spacing, topAnchor);
 			}
 		} else if (startIndex > 0 && hud.collapsedMessagesExpanded) {
@@ -105,11 +100,7 @@ public final class ChatHudSceneRenderer {
 				if (msg == null || msg.message == null) continue;
 				if (isOutOfBounds(currentY, screenHeight, topAnchor)) break;
 				int msgHeight = renderEntry(guiGraphics, font, screenWidth, currentY,
-						msg, 1.0f, hud, chatPosition, topAnchor);
-				int msgWidth = ChatMessageBoxPainter.calculateMessageWidth(font, msg.message);
-				int msgX = ChatMessageBoxPainter.calculateX(screenWidth, msgWidth, chatPosition);
-				int boundsY = topAnchor ? currentY : currentY - msgHeight;
-				hud.messageBounds.put(j, new MessageBounds(msgX, boundsY, msgWidth, msgHeight, j));
+						msg, 1.0f, hud, chatPosition, topAnchor, j);
 				currentY = advance(currentY, msgHeight, spacing, topAnchor);
 			}
 		}
@@ -126,40 +117,30 @@ public final class ChatHudSceneRenderer {
 					ChatMessageEntry sub = entry.expandedMessages.get(repeat);
 					if (sub == null || sub.message == null) continue;
 					int h = renderEntry(guiGraphics, font, screenWidth, currentY,
-							sub, 1.0f, hud, chatPosition, topAnchor);
-					int bw = ChatMessageBoxPainter.calculateMessageWidth(font, sub.message);
-					int bx = ChatMessageBoxPainter.calculateX(screenWidth, bw, chatPosition);
-					int by = topAnchor ? currentY : currentY - h;
-					hud.messageBounds.put(i * 1000 + repeat, new MessageBounds(bx, by, bw, h, i));
+							sub, 1.0f, hud, chatPosition, topAnchor, i * 1000 + repeat);
 					currentY = advance(currentY, h, spacing, topAnchor);
 				}
 			} else if (entry.isExpanded && entry.repeatCount > 1) {
 				for (int repeat = 0; repeat < entry.repeatCount; repeat++) {
 					if (isOutOfBounds(currentY, screenHeight, topAnchor)) break;
 					int h = renderEntry(guiGraphics, font, screenWidth, currentY,
-							entry, 1.0f, hud, chatPosition, topAnchor);
-					int bw = ChatMessageBoxPainter.calculateMessageWidth(font, entry.message);
-					int bx = ChatMessageBoxPainter.calculateX(screenWidth, bw, chatPosition);
-					int by = topAnchor ? currentY : currentY - h;
-					hud.messageBounds.put(i * 1000 + repeat, new MessageBounds(bx, by, bw, h, i));
+							entry, 1.0f, hud, chatPosition, topAnchor, i * 1000 + repeat);
 					currentY = advance(currentY, h, spacing, topAnchor);
 				}
 			} else {
 				int h = renderEntry(guiGraphics, font, screenWidth, currentY,
-						entry, 1.0f, hud, chatPosition, topAnchor);
-				int bw = ChatMessageBoxPainter.calculateMessageWidth(font, entry.message);
-				int bx = ChatMessageBoxPainter.calculateX(screenWidth, bw, chatPosition);
-				int by = topAnchor ? currentY : currentY - h;
-				hud.messageBounds.put(i, new MessageBounds(bx, by, bw, h, i));
+						entry, 1.0f, hud, chatPosition, topAnchor, i);
 				currentY = advance(currentY, h, spacing, topAnchor);
 			}
 		}
 	}
 
-	private static int renderEntry(GuiGraphics g, Font font, int screenWidth, int currentY,
-			ChatMessageEntry entry, float alpha, KksChatHud hud, int chatPosition, boolean topAnchor) {
+	private static int renderEntry(GuiGraphicsExtractor g, Font font, int screenWidth, int currentY,
+			ChatMessageEntry entry, float alpha, KksChatHud hud, int chatPosition, boolean topAnchor,
+			int boundsKey) {
+		// chatOpen=true: чат открыт, включаем hover-tooltips через ActiveTextCollector
 		return ChatMessageBoxPainter.renderSingleMessage(g, font, screenWidth, currentY,
-				entry, alpha, hud.backgroundOpacity, hud.messageBounds, chatPosition, topAnchor);
+				entry, alpha, hud.backgroundOpacity, hud.messageBounds, chatPosition, topAnchor, true, boundsKey);
 	}
 
 	private static int advance(int currentY, int height, int spacing, boolean topAnchor) {
@@ -172,10 +153,9 @@ public final class ChatHudSceneRenderer {
 
 	private static ChatMessageEntry createCollapsedEntry(int collapsedCount) {
 		if (collapsedCount <= 0) return null;
-		String text = collapsedCount == 1 ? "1 more message" : collapsedCount + " more messages";
-		MutableComponent msg = Component.literal(text)
+		MutableComponent msg = Component.translatable("kkschat.chat.more_messages", collapsedCount)
 				.withStyle(Style.EMPTY.withColor(ChatFormatting.GRAY));
-		ChatMessageEntry entry = new ChatMessageEntry(msg, null, null, true, false, null);
+		ChatMessageEntry entry = new ChatMessageEntry(msg, null, null, com.ddev14.kkschat.chat.MessageType.SYSTEM, null);
 		entry.isCollapsed = true;
 		entry.collapsedCount = collapsedCount;
 		return entry;

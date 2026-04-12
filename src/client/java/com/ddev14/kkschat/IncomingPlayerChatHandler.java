@@ -2,6 +2,7 @@ package com.ddev14.kkschat;
 
 import com.ddev14.kkschat.chat.ChatMessageEntry;
 import com.ddev14.kkschat.chat.LegacyAmpersandFormatting;
+import com.ddev14.kkschat.chat.MessageType;
 import com.ddev14.kkschat.chat.PlayerNameResolver;
 import com.ddev14.kkschat.skin.PlayerInfoLookup;
 import com.mojang.authlib.GameProfile;
@@ -19,24 +20,45 @@ public final class IncomingPlayerChatHandler {
 	private IncomingPlayerChatHandler() {}
 
 	public static void handle(KksChatHud hud, Component component, GameProfile sender) {
-				// Всегда сохраняем сообщения, даже когда чат выключен
-				// Они будут показаны когда чат включится
-				if (component == null || component.getString().isEmpty()) {
-					return;
+		if (SystemChatHandler.isVisiblyEmpty(component)) {
+			return;
+		}
+
+			// Если стилизация выключена — показываем оригинальный компонент как есть,
+			// но всё равно резолвим аватар игрока по GameProfile
+			if (!hud.isModifyMessageText()) {
+				hud.messageComponent = component;
+				hud.senderInfo = null;
+				if (sender != null && sender.id() != null) {
+					net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+					if (mc.getConnection() != null) {
+						hud.senderInfo = mc.getConnection().getPlayerInfo(sender.id());
+					}
 				}
-		
-				String raw = component.getString().toLowerCase();
-				String rawOriginal = component.getString();
-		
-				// Проверяем, является ли это whisper сообщением
-				boolean isWhisper = raw.contains("whispers") || raw.contains("шепчет") || 
-				                    raw.contains("whisper") || raw.contains("шепнул") ||
-				                    raw.contains("шепнула") || raw.contains("tell");
-		
-				if (isWhisper) {
-					WhisperChatHandler.handleWhisper(hud, component, rawOriginal);
-					return;
-				}
+				String senderName = sender != null ? sender.name() : null;
+				ChatMessageEntry e = hud.addToHistory(component, hud.senderInfo, MessageType.PLAYER_CHAT, senderName);
+				long now = System.currentTimeMillis();
+				if (e != null && e.repeatCount > 1) { hud.lastMessageTime = now; }
+				else { hud.firstMessageTime = now; hud.lastMessageTime = now; }
+				return;
+			}
+	
+			String raw = component.getString().toLowerCase();
+			String rawOriginal = component.getString();
+	
+		// Для player-chat канала шёпот определяем ТОЛЬКО по translation key.
+		// Текстовые эвристики здесь не применяем — иначе обычные фразы типа
+		// "tell me" или "I whisper" ошибочно уходят в WhisperChatHandler.
+		{
+			String tk = null;
+			if (component.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc) {
+				tk = tc.getKey();
+			}
+		if (tk != null && tk.contains("commands.message")) {
+			WhisperChatHandler.handleWhisper(hud, component, rawOriginal);
+			return;
+		}
+		}
 		
 				// Heuristic: "plain" vanilla chat line (no siblings, no style, no §/json formatting)
 				boolean hasLegacy = rawOriginal.indexOf('&') != -1;
@@ -302,9 +324,7 @@ public final class IncomingPlayerChatHandler {
 					hud.messageComponent = component;
 				}
 		
-				hud.systemMessage = false;
-		
-				// Resolve PlayerInfo by name or UUID (same idea as in Chat Heads suggestions mixin)
+			// Resolve PlayerInfo by name or UUID (same idea as in Chat Heads suggestions mixin)
 				hud.senderInfo = null;
 				if (sender != null && sender.id() != null) {
 					// ПРИОРИТЕТ 1: Используем UUID из GameProfile для получения PlayerInfo
@@ -324,9 +344,9 @@ public final class IncomingPlayerChatHandler {
 					senderName = sender.name();
 				}
 		
-				// Сохраняем в историю и определяем, было ли это повторяющееся сообщение
-				// Передаем имя отправителя для повторного поиска когда скин загрузится (важно для SkinsRestorer)
-				ChatMessageEntry entry = hud.addToHistory(hud.messageComponent, hud.senderInfo, false, senderName);
+			// Сохраняем в историю и определяем, было ли это повторяющееся сообщение
+			// Передаем имя отправителя для повторного поиска когда скин загрузится (важно для SkinsRestorer)
+			ChatMessageEntry entry = hud.addToHistory(hud.messageComponent, hud.senderInfo, MessageType.PLAYER_CHAT, senderName);
 				boolean isRepeat = entry != null && entry.repeatCount > 1;
 		
 				long now = System.currentTimeMillis();

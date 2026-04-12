@@ -6,7 +6,7 @@ import com.ddev14.kkschat.skin.PlayerSkinUpdater;
 import com.mojang.authlib.GameProfile;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.PlayerInfo;
@@ -36,8 +36,6 @@ public class KksChatHud {
 	// Эти поля используются для анимации и таймера скрытия последнего сообщения
 	// В данный момент используются только для очистки, но могут быть использованы для будущего функционала
 	@SuppressWarnings("unused")
-	boolean systemMessage;    // true for system messages
-	@SuppressWarnings("unused")
 	long firstMessageTime;
 	@SuppressWarnings("unused")
 	long lastMessageTime;
@@ -57,7 +55,7 @@ public class KksChatHud {
 	private static final int SCROLL_SPEED = 3; // Количество сообщений на прокрутку
 
 	// Флаг включения/выключения мода (фильтр чата - блокировка стандартного чата)
-	private boolean enabled = true;
+	boolean enabled = true;
 	
 	// Флаг изменения текста сообщений (true = изменять форматирование, false = показывать как есть)
 	boolean modifyMessageText = true;
@@ -72,26 +70,27 @@ public class KksChatHud {
 	boolean collapsedMessagesExpanded = false;
 
 	/**
-	 * Добавляет сообщение в историю чата с указанием имени отправителя
-	 * Возвращает ChatMessageEntry для возможности обновления PlayerInfo позже
+	 * Добавляет сообщение в историю чата.
+	 * Возвращает ChatMessageEntry для возможности обновления PlayerInfo позже.
 	 */
-	ChatMessageEntry addToHistory(Component message, PlayerInfo senderInfo, boolean systemMessage, String senderName) {
-		return ChatHistoryAppender.addStandardLine(this, message, senderInfo, systemMessage, senderName);
+	ChatMessageEntry addToHistory(Component message, PlayerInfo senderInfo,
+			com.ddev14.kkschat.chat.MessageType type, String senderName) {
+		return ChatHistoryAppender.addLine(this, message, senderInfo, null, type, senderName);
 	}
 
 	/**
-	 * Добавляет whisper сообщение в историю чата
-	 * Возвращает ChatMessageEntry для возможности обновления PlayerInfo позже
+	 * Добавляет whisper сообщение в историю чата.
+	 * Возвращает ChatMessageEntry для возможности обновления PlayerInfo позже.
 	 */
 	ChatMessageEntry addToHistoryWhisper(Component message, PlayerInfo senderInfo, PlayerInfo receiverInfo, String senderName) {
-		return ChatHistoryAppender.addWhisperLine(this, message, senderInfo, receiverInfo, senderName);
+		return ChatHistoryAppender.addLine(this, message, senderInfo, receiverInfo,
+				com.ddev14.kkschat.chat.MessageType.WHISPER, senderName);
 	}
 
 	public void clearChat() {
 		messageHistory.clear();
 		messageComponent = null;
 		senderInfo = null;
-		systemMessage = false;
 		scrollOffset = 0;
 		messageBounds.clear();
 	}
@@ -128,7 +127,7 @@ public class KksChatHud {
 		}
 	}
 
-	public void onHudRender(GuiGraphics guiGraphics) {
+	public void onHudRender(GuiGraphicsExtractor guiGraphics) {
 		// Показываем чат только если он включен
 		// Но сообщения продолжают сохраняться даже когда чат выключен
 		if (!enabled) {
@@ -204,7 +203,7 @@ public class KksChatHud {
 				int historyIndex = bounds.historyIndex;
 				if (historyIndex >= 0 && historyIndex < messageHistory.size()) {
 					ChatMessageEntry entry = messageHistory.get(historyIndex);
-					if (entry != null && entry.isAchievement && entry.message != null) {
+					if (entry != null && entry.isAchievement() && entry.message != null) {
 						hoveredEntry = entry;
 						break;
 					}
@@ -216,8 +215,8 @@ public class KksChatHud {
 	/**
 	 * Рендерит tooltip для сообщения о достижении при наведении
 	 */
-	public void renderTooltip(GuiGraphics guiGraphics, int mouseX, int mouseY) {
-		// Tooltip будет реализован позже, когда найдем правильный API для GuiGraphics
+	public void renderTooltip(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY) {
+		// Tooltip будет реализован позже, когда найдем правильный API для GuiGraphicsExtractor
 		// Пока фокусируемся на том, чтобы клик открывал экран достижений
 	}
 	
@@ -269,6 +268,7 @@ public class KksChatHud {
 		if (!wasEnabled && enabled) {
 			clearVanillaChat();
 		}
+		KksChatConfig.save(this);
 	}
 	
 	/**

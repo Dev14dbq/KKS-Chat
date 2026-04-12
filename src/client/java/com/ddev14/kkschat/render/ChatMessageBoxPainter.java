@@ -3,8 +3,11 @@ package com.ddev14.kkschat.render;
 import com.ddev14.kkschat.chat.ChatLayout;
 import com.ddev14.kkschat.chat.ChatMessageEntry;
 import com.ddev14.kkschat.chat.MessageBounds;
+import com.ddev14.kkschat.chat.MessageType;
+import net.minecraft.client.gui.ActiveTextCollector;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.TextAlignment;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -43,12 +46,15 @@ public final class ChatMessageBoxPainter {
 	}
 
 	/**
-	 * @param startY  при topAnchor=false — нижняя граница блока; при topAnchor=true — верхняя
-	 * @param topAnchor  true для позиций «сверху», false для позиций «снизу»
+	 * @param startY    при topAnchor=false — нижняя граница блока; при topAnchor=true — верхняя
+	 * @param topAnchor true для позиций «сверху», false для позиций «снизу»
+	 * @param chatOpen  true — чат открыт (включаем hover-tooltip через ActiveTextCollector)
+	 * @param boundsKey ключ для записи MessageBounds в карту; Integer.MIN_VALUE — не записывать
 	 */
-	public static int renderSingleMessage(GuiGraphics guiGraphics, Font font, int screenWidth, int startY,
+	public static int renderSingleMessage(GuiGraphicsExtractor guiGraphics, Font font, int screenWidth, int startY,
 			ChatMessageEntry entry, float alpha, float backgroundOpacity,
-			Map<Integer, MessageBounds> messageBounds, int chatPosition, boolean topAnchor) {
+			Map<Integer, MessageBounds> messageBounds, int chatPosition, boolean topAnchor,
+			boolean chatOpen, int boundsKey) {
 		Component component = entry.message;
 		if (component == null || component.getString().isEmpty()) {
 			return 0;
@@ -64,28 +70,23 @@ public final class ChatMessageBoxPainter {
 
 		int fullTextWidth = font.width(component);
 
-		boolean isWhisper = entry.isWhisper;
+		boolean isWhisper = entry.isWhisper();
+		boolean isJoinMessage = entry.isJoinMessage();
 
-		boolean isShortWhisper = false;
-		if (isWhisper) {
-			int shortMessageThreshold = 150;
-			isShortWhisper = fullTextWidth < shortMessageThreshold && component.getString().split("\n").length == 1;
-		}
+		boolean isShortWhisper = isWhisper
+				&& fullTextWidth < 150
+				&& component.getString().split("\n").length == 1;
 
 		int avatarAreaWidth;
-		if (entry.isJoinMessage) {
+		if (isJoinMessage) {
 			avatarAreaWidth = 0;
-		} else if (isWhisper) {
-			if (isShortWhisper) {
-				avatarAreaWidth = ChatLayout.AVATAR_SIZE + 3 + 3 + 3 + ChatLayout.AVATAR_SIZE;
-			} else {
-				avatarAreaWidth = ChatLayout.AVATAR_SIZE;
-			}
+		} else if (isShortWhisper) {
+			avatarAreaWidth = ChatLayout.AVATAR_SIZE + 3 + 3 + 3 + ChatLayout.AVATAR_SIZE;
 		} else {
 			avatarAreaWidth = ChatLayout.AVATAR_SIZE;
 		}
 
-		int leftNonText = entry.isJoinMessage ? ChatLayout.HORIZONTAL_PADDING : (ChatLayout.HORIZONTAL_PADDING + avatarAreaWidth + 7);
+		int leftNonText = isJoinMessage ? ChatLayout.HORIZONTAL_PADDING : (ChatLayout.HORIZONTAL_PADDING + avatarAreaWidth + 7);
 		int rightNonText = ChatLayout.HORIZONTAL_PADDING;
 		int totalNonTextWidth = leftNonText + rightNonText;
 
@@ -103,73 +104,86 @@ public final class ChatMessageBoxPainter {
 		}
 
 		int textHeight = font.lineHeight * lines.size();
-		int contentHeight = entry.isJoinMessage ? textHeight : Math.max(ChatLayout.AVATAR_SIZE, textHeight);
+		int contentHeight = isJoinMessage ? textHeight : Math.max(ChatLayout.AVATAR_SIZE, textHeight);
 		int boxHeight = contentHeight + ChatLayout.VERTICAL_PADDING * 2;
 		int y = topAnchor ? startY : startY - boxHeight;
 
 		int baseAlpha = (int) (backgroundOpacity * 255.0f);
 		int animatedAlpha = (int) (baseAlpha * alpha);
-		int backgroundColor = (animatedAlpha << 24) | 0x000000;
-		guiGraphics.fill(x, y, x + boxWidth, y + boxHeight, backgroundColor);
+
+		// Фон зависит от типа сообщения
+		int bgBase = switch (entry.type) {
+			case CHALLENGE   -> 0x1A0028;
+			case ACHIEVEMENT -> 0x001A04;
+			default          -> 0x000000;
+		};
+		guiGraphics.fill(x, y, x + boxWidth, y + boxHeight, (animatedAlpha << 24) | bgBase);
+
+		// Цветная вертикальная полоска-акцент для достижений/испытаний
+		if (entry.type == MessageType.CHALLENGE || entry.type == MessageType.ACHIEVEMENT) {
+			int accentRgb = entry.type == MessageType.CHALLENGE ? 0xAA00CC : 0x00AA22;
+			guiGraphics.fill(x, y, x + 3, y + boxHeight, (animatedAlpha << 24) | accentRgb);
+		}
 
 		int avatarX = x + ChatLayout.HORIZONTAL_PADDING;
+		int avatarY = y + (boxHeight - ChatLayout.AVATAR_SIZE) / 2;
 
 		if (entry.isCollapsed) {
-			int avatarY = y + (boxHeight - ChatLayout.AVATAR_SIZE) / 2;
 			ChatHudAvatarRenderer.renderClockIcon(guiGraphics, avatarX, avatarY, alpha);
-		} else {
-			int avatarY = y + (boxHeight - ChatLayout.AVATAR_SIZE) / 2;
-			if (entry.isJoinMessage) {
-				// только текст
-			} else if (entry.senderInfo != null) {
+		} else if (!isJoinMessage) {
+			if (entry.senderInfo != null) {
 				ChatHudAvatarRenderer.renderPlayerHead(guiGraphics, avatarX, avatarY, entry.senderInfo, alpha);
 			} else if (entry.senderName != null) {
 				ChatHudAvatarRenderer.renderPlayerHeadByName(guiGraphics, avatarX, avatarY, entry.senderName, alpha);
 			} else {
-				if (entry.isChallenge) {
-					ChatHudAvatarRenderer.renderNetheriteIcon(guiGraphics, avatarX, avatarY, alpha);
-				} else if (entry.isAchievement) {
-					ChatHudAvatarRenderer.renderEmeraldIcon(guiGraphics, avatarX, avatarY, alpha);
-				} else if (entry.isError) {
-					ChatHudAvatarRenderer.renderBarrierIcon(guiGraphics, avatarX, avatarY, alpha);
-				} else if (entry.isSleepMessage) {
-					ChatHudAvatarRenderer.renderBedIcon(guiGraphics, avatarX, avatarY, alpha);
-				} else if (entry.isScreenshot) {
-					ChatHudAvatarRenderer.renderCameraIcon(guiGraphics, avatarX, avatarY, alpha);
-				} else if (entry.systemMessage) {
-					ChatHudAvatarRenderer.renderStickIcon(guiGraphics, avatarX, avatarY, alpha);
-				} else {
-					ChatHudAvatarRenderer.renderDefaultSteveHead(guiGraphics, avatarX, avatarY, alpha);
+				// Иконка по типу сообщения
+				switch (entry.type) {
+					case CHALLENGE   -> ChatHudAvatarRenderer.renderNetheriteIcon(guiGraphics, avatarX, avatarY, alpha);
+					case ACHIEVEMENT -> ChatHudAvatarRenderer.renderEmeraldIcon(guiGraphics, avatarX, avatarY, alpha);
+					case ERROR       -> ChatHudAvatarRenderer.renderBarrierIcon(guiGraphics, avatarX, avatarY, alpha);
+					case SLEEP       -> ChatHudAvatarRenderer.renderBedIcon(guiGraphics, avatarX, avatarY, alpha);
+					case SCREENSHOT  -> ChatHudAvatarRenderer.renderCameraIcon(guiGraphics, avatarX, avatarY, alpha);
+					case SYSTEM      -> ChatHudAvatarRenderer.renderStickIcon(guiGraphics, avatarX, avatarY, alpha);
+					default          -> ChatHudAvatarRenderer.renderDefaultSteveHead(guiGraphics, avatarX, avatarY, alpha);
 				}
 			}
 		}
 
 		int textX = textAreaStartX;
 		int totalTextHeight = font.lineHeight * lines.size();
-		int avatarCenterY = y + (boxHeight - ChatLayout.AVATAR_SIZE) / 2 + ChatLayout.AVATAR_SIZE / 2;
+		int avatarCenterY = avatarY + ChatLayout.AVATAR_SIZE / 2;
 		int textY = avatarCenterY - totalTextHeight / 2;
 
-		int textAlpha = (int) (255 * alpha);
-		int textColorWithAlpha = (textAlpha << 24) | 0xFFFFFF;
-
-		for (int i = 0; i < lines.size(); i++) {
-			FormattedCharSequence line = lines.get(i);
-			int lineY = textY + i * font.lineHeight;
-			guiGraphics.drawString(font, line, textX, lineY, textColorWithAlpha, false);
+		if (chatOpen) {
+			// Открытый чат: используем ActiveTextCollector с TOOLTIP_AND_CURSOR,
+			// чтобы движок автоматически показывал hover-эффекты (SHOW_TEXT, SHOW_ITEM,
+			// SHOW_ENTITY) и менял курсор над кликабельным текстом.
+			ActiveTextCollector renderer = guiGraphics.textRenderer(
+					GuiGraphicsExtractor.HoveredTextEffects.TOOLTIP_AND_CURSOR);
+			ActiveTextCollector.Parameters params = renderer.defaultParameters().withOpacity(alpha);
+			for (int i = 0; i < lines.size(); i++) {
+				renderer.accept(TextAlignment.LEFT, textX, textY + i * font.lineHeight,
+						params, lines.get(i));
+			}
+		} else {
+			// Закрытый HUD-оверлей: просто рисуем текст с alpha-fade, hover не нужен.
+			int textAlpha = (int) (255 * alpha);
+			int textBaseColor = switch (entry.type) {
+				case CHALLENGE   -> 0xFF55FF;
+				case ACHIEVEMENT -> 0x55FF55;
+				default          -> 0xFFFFFF;
+			};
+			int textColorWithAlpha = (textAlpha << 24) | textBaseColor;
+			for (int i = 0; i < lines.size(); i++) {
+				guiGraphics.text(font, lines.get(i), textX, textY + i * font.lineHeight,
+						textColorWithAlpha, false);
+			}
 		}
 
-		if (alpha >= 0.99f) {
-			for (Map.Entry<Integer, MessageBounds> boundsEntry : messageBounds.entrySet()) {
-				MessageBounds bounds = boundsEntry.getValue();
-				if (Math.abs(bounds.x - x) < 5 && Math.abs(bounds.y - y) < 5 &&
-						Math.abs(bounds.width - boxWidth) < 5 && Math.abs(bounds.height - boxHeight) < 5) {
-					bounds.textX = textX;
-					bounds.textY = textY;
-					bounds.maxTextWidth = maxTextWidth;
-					bounds.component = entry.message;
-					break;
-				}
-			}
+		if (boundsKey != Integer.MIN_VALUE) {
+			messageBounds.put(boundsKey, new MessageBounds(
+					x, y, boxWidth, boxHeight, boundsKey,
+					textX, textY, maxTextWidth, entry.message));
 		}
 
 		return boxHeight;

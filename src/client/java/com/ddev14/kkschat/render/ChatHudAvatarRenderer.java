@@ -4,11 +4,11 @@ import com.ddev14.kkschat.chat.ChatLayout;
 import com.ddev14.kkschat.skin.MojangSkinCache;
 import com.ddev14.kkschat.skin.PlayerInfoLookup;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -28,13 +28,13 @@ public final class ChatHudAvatarRenderer {
 	private static final ItemStack STICK_STACK = new ItemStack(Items.STICK);
 	private static final ItemStack BED_STACK = new ItemStack(Items.RED_BED);
 
-	public static void renderPlayerHead(GuiGraphics guiGraphics, int x, int y, PlayerInfo owner, float opacity) {
+	public static void renderPlayerHead(GuiGraphicsExtractor guiGraphics, int x, int y, PlayerInfo owner, float opacity) {
 		if (owner == null) {
 			return;
 		}
 
 		try {
-			ResourceLocation skinLocation = owner.getSkin().body().texturePath();
+			Identifier skinLocation = owner.getSkin().body().texturePath();
 			int color = ARGB.white(opacity);
 
 			ClientLevel level = Minecraft.getInstance().level;
@@ -64,7 +64,7 @@ public final class ChatHudAvatarRenderer {
 		}
 	}
 
-	public static void renderPlayerHeadByName(GuiGraphics guiGraphics, int x, int y, String playerName, float opacity) {
+	public static void renderPlayerHeadByName(GuiGraphicsExtractor guiGraphics, int x, int y, String playerName, float opacity) {
 		if (playerName == null || playerName.isEmpty()) {
 			renderDefaultSteveHead(guiGraphics, x, y, opacity);
 			return;
@@ -84,8 +84,8 @@ public final class ChatHudAvatarRenderer {
 		}
 	}
 
-	public static void renderDefaultSteveHead(GuiGraphics guiGraphics, int x, int y, float opacity) {
-		ResourceLocation steveSkin = ResourceLocation.fromNamespaceAndPath("kks-chat", "steve.png");
+	public static void renderDefaultSteveHead(GuiGraphicsExtractor guiGraphics, int x, int y, float opacity) {
+		Identifier steveSkin = Identifier.fromNamespaceAndPath("kks-chat", "steve.png");
 		int color = ARGB.white(opacity);
 		int av = ChatLayout.AVATAR_SIZE;
 
@@ -102,44 +102,44 @@ public final class ChatHudAvatarRenderer {
 				64, 64, color);
 	}
 
-	public static void renderBarrierIcon(GuiGraphics guiGraphics, int x, int y, float alpha) {
+	public static void renderBarrierIcon(GuiGraphicsExtractor guiGraphics, int x, int y, float alpha) {
 		int iconY = y - 1;
 		int color = ARGB.white(alpha);
-		guiGraphics.renderItem(BARRIER_STACK, x, iconY, color);
+		guiGraphics.item(BARRIER_STACK, x, iconY, color);
 	}
 
-	public static void renderEmeraldIcon(GuiGraphics guiGraphics, int x, int y, float alpha) {
+	public static void renderEmeraldIcon(GuiGraphicsExtractor guiGraphics, int x, int y, float alpha) {
 		int iconY = y - 1;
 		int color = ARGB.white(alpha);
-		guiGraphics.renderItem(EMERALD_STACK, x, iconY, color);
+		guiGraphics.item(EMERALD_STACK, x, iconY, color);
 	}
 
-	public static void renderNetheriteIcon(GuiGraphics guiGraphics, int x, int y, float alpha) {
+	public static void renderNetheriteIcon(GuiGraphicsExtractor guiGraphics, int x, int y, float alpha) {
 		int iconY = y - 1;
 		int color = ARGB.white(alpha);
-		guiGraphics.renderItem(NETHERITE_STACK, x, iconY, color);
+		guiGraphics.item(NETHERITE_STACK, x, iconY, color);
 	}
 
-	public static void renderClockIcon(GuiGraphics guiGraphics, int x, int y, float alpha) {
+	public static void renderClockIcon(GuiGraphicsExtractor guiGraphics, int x, int y, float alpha) {
 		int iconY = y - 1;
 		int color = ARGB.white(alpha);
-		guiGraphics.renderItem(CLOCK_STACK, x, iconY, color);
+		guiGraphics.item(CLOCK_STACK, x, iconY, color);
 	}
 
-	public static void renderStickIcon(GuiGraphics guiGraphics, int x, int y, float alpha) {
+	public static void renderStickIcon(GuiGraphicsExtractor guiGraphics, int x, int y, float alpha) {
 		int iconY = y - 1;
 		int color = ARGB.white(alpha);
-		guiGraphics.renderItem(STICK_STACK, x, iconY, color);
+		guiGraphics.item(STICK_STACK, x, iconY, color);
 	}
 
-	public static void renderBedIcon(GuiGraphics guiGraphics, int x, int y, float alpha) {
+	public static void renderBedIcon(GuiGraphicsExtractor guiGraphics, int x, int y, float alpha) {
 		int iconY = y - 1;
 		int color = ARGB.white(alpha);
-		guiGraphics.renderItem(BED_STACK, x, iconY, color);
+		guiGraphics.item(BED_STACK, x, iconY, color);
 	}
 
-	public static void renderCameraIcon(GuiGraphics guiGraphics, int x, int y, float alpha) {
-		ResourceLocation cameraTexture = ResourceLocation.fromNamespaceAndPath("kks-chat", "camera.png");
+	public static void renderCameraIcon(GuiGraphicsExtractor guiGraphics, int x, int y, float alpha) {
+		Identifier cameraTexture = Identifier.fromNamespaceAndPath("kks-chat", "camera.png");
 		int color = ARGB.white(alpha);
 		int av = ChatLayout.AVATAR_SIZE;
 		guiGraphics.blit(RenderPipelines.GUI_TEXTURED, cameraTexture, x, y,

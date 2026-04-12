@@ -13,8 +13,7 @@ public final class ChatMessageEntry {
 	public Component message;
 	public PlayerInfo senderInfo;
 	public PlayerInfo receiverInfo;
-	public boolean systemMessage;
-	public boolean isWhisper;
+	public MessageType type;
 	public long timestamp;
 	public long firstMessageTime;
 	public int repeatCount = 1;
@@ -26,20 +25,13 @@ public final class ChatMessageEntry {
 	public int collapsedCount;
 	public boolean isExpanded;
 	public List<ChatMessageEntry> expandedMessages;
-	public boolean isAchievement;
-	public boolean isChallenge;
-	public boolean isError;
-	public boolean isSleepMessage;
-	public boolean isJoinMessage;
-	public boolean isScreenshot;
 
 	public ChatMessageEntry(Component message, PlayerInfo senderInfo, PlayerInfo receiverInfo,
-			boolean systemMessage, boolean isWhisper, String senderName) {
+			MessageType type, String senderName) {
 		this.message = message;
 		this.senderInfo = senderInfo;
 		this.receiverInfo = receiverInfo;
-		this.systemMessage = systemMessage;
-		this.isWhisper = isWhisper;
+		this.type = type != null ? type : MessageType.SYSTEM;
 		this.senderName = senderName;
 		long now = System.currentTimeMillis();
 		this.timestamp = now;
@@ -49,6 +41,17 @@ public final class ChatMessageEntry {
 		}
 		this.messagePattern = ChatSpamPatterns.extractMessagePattern(message.getString());
 	}
+
+	// ----- convenience accessors (обратная совместимость с рендером) -----
+
+	public boolean isWhisper()      { return type == MessageType.WHISPER; }
+	public boolean isAchievement()  { return type == MessageType.ACHIEVEMENT; }
+	public boolean isChallenge()    { return type == MessageType.CHALLENGE; }
+	public boolean isError()        { return type == MessageType.ERROR; }
+	public boolean isSleepMessage() { return type == MessageType.SLEEP; }
+	public boolean isJoinMessage()  { return type == MessageType.JOIN_LEAVE; }
+	public boolean isScreenshot()   { return type == MessageType.SCREENSHOT; }
+	public boolean isSystemMessage(){ return type.isSystem(); }
 
 	public void updateSenderInfo(PlayerInfo newInfo) {
 		if (newInfo != null && (senderInfo == null || senderUUID == null || senderUUID.equals(newInfo.getProfile().id()))) {
