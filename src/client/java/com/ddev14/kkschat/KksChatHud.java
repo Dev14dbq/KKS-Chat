@@ -1,6 +1,8 @@
 package com.ddev14.kkschat;
 
+import com.ddev14.kkschat.chat.ChatAnimationType;
 import com.ddev14.kkschat.chat.ChatMessageEntry;
+import com.ddev14.kkschat.chat.ChatRule;
 import com.ddev14.kkschat.chat.MessageBounds;
 import com.ddev14.kkschat.skin.PlayerSkinUpdater;
 import com.mojang.authlib.GameProfile;
@@ -63,6 +65,59 @@ public class KksChatHud {
 	// Максимальное количество сообщений для отображения без сжатия
 	int maxVisibleMessages = 10;
 	
+	// Правила из конфига (применяются к каждому входящему сообщению)
+	final List<ChatRule> rules = new java.util.ArrayList<>();
+
+	// Анимация появления и исчезновения сообщений (независимо)
+	ChatAnimationType animationIn  = ChatAnimationType.FADE;
+	ChatAnimationType animationOut = ChatAnimationType.FADE;
+
+	// Цвет фона по типу сообщения (имя типа → hex-строка, e.g. "#1A0028")
+	public java.util.Map<String, String> bgColors = defaultBgColors();
+
+	static java.util.Map<String, String> defaultBgColors() {
+		java.util.Map<String, String> m = new java.util.LinkedHashMap<>();
+		m.put("PLAYER_CHAT",   "#000000");
+		m.put("WHISPER",       "#000000");
+		m.put("JOIN_LEAVE",    "#000000");
+		m.put("ACHIEVEMENT",   "#001A04");
+		m.put("CHALLENGE",     "#1A0028");
+		m.put("ERROR",         "#1A0000");
+		m.put("SLEEP",         "#000000");
+		m.put("SCREENSHOT",    "#000000");
+		m.put("COMMAND_BLOCK", "#000000");
+		m.put("SYSTEM",        "#000000");
+		return m;
+	}
+
+	// Иконки по типу сообщения (Minecraft item ID, например "minecraft:stick")
+	String iconSystem        = "minecraft:stick";
+	String iconError         = "minecraft:barrier";
+	String iconSleep         = "minecraft:red_bed";
+	String iconAchievement   = "minecraft:emerald";
+	String iconChallenge     = "minecraft:netherite_ingot";
+	String iconCommandBlock  = "minecraft:command_block";
+	String iconWhisper       = "minecraft:paper";
+	String iconJoinLeave     = "minecraft:oak_door";
+
+	public String getIconSystem()       { return iconSystem; }
+	public String getIconError()        { return iconError; }
+	public String getIconSleep()        { return iconSleep; }
+	public String getIconAchievement()  { return iconAchievement; }
+	public String getIconChallenge()    { return iconChallenge; }
+	public String getIconCommandBlock() { return iconCommandBlock; }
+	public String getIconWhisper()      { return iconWhisper; }
+	public String getIconJoinLeave()    { return iconJoinLeave; }
+
+	public void setIconSystem(String id)       { this.iconSystem = id;       KksChatConfig.save(this); }
+	public void setIconError(String id)        { this.iconError = id;        KksChatConfig.save(this); }
+	public void setIconSleep(String id)        { this.iconSleep = id;        KksChatConfig.save(this); }
+	public void setIconAchievement(String id)  { this.iconAchievement = id;  KksChatConfig.save(this); }
+	public void setIconChallenge(String id)    { this.iconChallenge = id;    KksChatConfig.save(this); }
+	public void setIconCommandBlock(String id) { this.iconCommandBlock = id; KksChatConfig.save(this); }
+	public void setIconWhisper(String id)      { this.iconWhisper = id;      KksChatConfig.save(this); }
+	public void setIconJoinLeave(String id)    { this.iconJoinLeave = id;    KksChatConfig.save(this); }
+
 	// Хранит позиции сообщений для обработки кликов (индекс в истории -> позиция на экране)
 	final Map<Integer, MessageBounds> messageBounds = new ConcurrentHashMap<>();
 	
@@ -324,6 +379,19 @@ public class KksChatHud {
 		this.chatPosition = Math.max(0, Math.min(5, position));
 		KksChatConfig.save(this);
 	}
+
+	public ChatAnimationType getAnimationIn()  { return animationIn; }
+	public ChatAnimationType getAnimationOut() { return animationOut; }
+	public void setAnimationIn(ChatAnimationType type) {
+		this.animationIn = type != null ? type : ChatAnimationType.FADE;
+		KksChatConfig.save(this);
+	}
+	public void setAnimationOut(ChatAnimationType type) {
+		this.animationOut = type != null ? type : ChatAnimationType.FADE;
+		KksChatConfig.save(this);
+	}
+
+	public java.util.Map<String, String> getBgColors() { return bgColors; }
 
 	public boolean isAntiSpamEnabled() { return antiSpamEnabled; }
 	public void setAntiSpamEnabled(boolean enabled) {

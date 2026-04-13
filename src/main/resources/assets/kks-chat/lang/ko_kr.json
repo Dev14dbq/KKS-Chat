@@ -3,6 +3,7 @@
   "kkschat.settings.on": "켜짐",
   "kkschat.settings.off": "꺼짐",
   "kkschat.settings.enabled": "KKS Chat: %s",
+  "kkschat.settings.customization": "Customization",
   "kkschat.settings.styling": "스타일: %s",
   "kkschat.settings.antispam": "도배 방지: %s",
   "kkschat.settings.position": "위치: %s",

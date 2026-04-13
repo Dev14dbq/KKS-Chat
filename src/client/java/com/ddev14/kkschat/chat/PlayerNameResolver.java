@@ -154,12 +154,43 @@ public final class PlayerNameResolver {
 		return name;
 	}
 
+	/**
+	 * Слова, которые никогда не являются никами: измерения, время суток,
+	 * команды, служебные слова Minecraft и распространённые английские слова.
+	 */
+	private static final java.util.Set<String> RESERVED_WORDS = java.util.Set.of(
+		// Измерения
+		"overworld", "nether", "theend", "the_end",
+		// Время суток
+		"day", "night", "noon", "dusk", "dawn", "sunset", "sunrise", "midnight",
+		// Игровые команды
+		"kill", "tp", "give", "set", "run", "say", "me", "tell", "msg",
+		"ban", "kick", "op", "deop", "stop", "save", "time", "weather",
+		"gamemode", "difficulty", "spawnpoint", "clear", "fill", "clone",
+		"execute", "summon", "setblock", "gamerule", "scoreboard", "team",
+		"title", "bossbar", "trigger", "function", "schedule", "help",
+		// Служебные слова системных сообщений
+		"unknown", "command", "error", "failed", "invalid", "exception",
+		"server", "console", "system", "minecraft", "fabric",
+		// Распространённые слова, которые могут быть в начале сообщения
+		"you", "your", "the", "this", "that", "has", "have", "was", "were",
+		"not", "for", "and", "but", "with", "from", "into", "onto",
+		"click", "here", "hover", "over", "open", "close", "view",
+		"joined", "left", "disconnected", "connected",
+		// Слова из сообщений командного блока / сервера
+		"команда", "задана", "выполнена", "установлена"
+	);
+
 	public static boolean isValidPlayerName(String name) {
-		if (name == null || name.length() < 2 || name.length() > 16) {
+		if (name == null || name.length() < 3 || name.length() > 16) {
 			return false;
 		}
 
 		if (!name.matches("^[a-zA-Z0-9_]+$") || name.matches("^_+$")) {
+			return false;
+		}
+
+		if (RESERVED_WORDS.contains(name.toLowerCase())) {
 			return false;
 		}
 

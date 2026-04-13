@@ -26,6 +26,14 @@ public final class ChatMessageEntry {
 	public boolean isExpanded;
 	public List<ChatMessageEntry> expandedMessages;
 
+	// ── Rule overrides (set by RuleEngine) ───────────────────────────────────
+	/** Non-null when a rule overrides the icon for this specific message. */
+	public String iconOverride;
+	/** True when a rule disables stylization for this specific message. */
+	public boolean noStyle;
+	/** Positive when a rule overrides the display time (seconds) for this message. */
+	public int displayTimeOverride = -1;
+
 	public ChatMessageEntry(Component message, PlayerInfo senderInfo, PlayerInfo receiverInfo,
 			MessageType type, String senderName) {
 		this.message = message;

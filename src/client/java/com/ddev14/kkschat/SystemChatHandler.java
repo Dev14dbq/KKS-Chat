@@ -85,6 +85,15 @@ public final class SystemChatHandler {
 			return MessageType.ACHIEVEMENT;
 		}
 
+		// --- Командный блок (chat.type.admin → "[@: output]") ---
+		if (translationKey != null && translationKey.equals("chat.type.admin")) {
+			return MessageType.COMMAND_BLOCK;
+		}
+		if (lower.startsWith("[@") || lower.startsWith("[@:") || lower.startsWith("[командный блок")
+				|| lower.startsWith("[command block")) {
+			return MessageType.COMMAND_BLOCK;
+		}
+
 		// --- Шёпот (только команды /msg, /tell, /w) ---
 		if (translationKey != null && translationKey.contains("commands.message")) {
 			return MessageType.WHISPER;
@@ -160,6 +169,9 @@ public final class SystemChatHandler {
 		}
 
 		// --- Попытка определить сообщение игрока через кастомный серверный формат ---
+		// Серверы вроде Hypixel используют: [ранг] Ник: текст  или  [ранг] Ник » текст
+		// extractPlayerNameFromText пропускает [...] скобки и берёт первое валидное слово.
+		// RESERVED_WORDS и минимум 3 символа в isValidPlayerName защищают от ложных срабатываний.
 		String playerName = PlayerNameResolver.extractPlayerNameFromComponent(component);
 		if (playerName == null) {
 			playerName = PlayerNameResolver.extractPlayerNameFromText(raw);
@@ -178,10 +190,10 @@ public final class SystemChatHandler {
 				}
 			}
 		}
-		if (playerName != null && playerName.length() >= 2 && playerName.length() <= 16) {
+		if (playerName != null) {
 			boolean looksLikeChat = raw.contains("»") || raw.contains(":")
 					|| raw.contains(">") || raw.contains("<")
-					|| (raw.indexOf(playerName) >= 0 && raw.length() > playerName.length() + 5);
+					|| raw.length() > playerName.length() + 5;
 			if (looksLikeChat) {
 				return MessageType.PLAYER_CHAT;
 			}

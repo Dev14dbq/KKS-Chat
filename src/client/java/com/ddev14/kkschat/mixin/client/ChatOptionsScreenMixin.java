@@ -59,11 +59,22 @@ public class ChatOptionsScreenMixin {
 			}
 		).width(150).build();
 
+		boolean modifyText = hud.isModifyMessageText();
 		Button modifyTextBtn = Button.builder(
-			styleLabel(hud.isModifyMessageText()),
+			styleLabel(modifyText),
+			btn -> {
+				boolean next = !KksChatModClient.getHud().isModifyMessageText();
+				KksChatModClient.getHud().setModifyMessageText(next);
+				btn.setMessage(styleLabel(next));
+			}
+		).width(150).build();
+
+		Button customizationBtn = Button.builder(
+			Component.translatable("kkschat.settings.customization"),
 			btn -> {}
 		).width(150).build();
-		modifyTextBtn.active = false;
+		customizationBtn.active = false;
+
 		this.list.addSmall(enabledBtn, modifyTextBtn);
 
 		// Ряд 2: Анти-спам | Позиция
@@ -128,8 +139,8 @@ public class ChatOptionsScreenMixin {
 		this.list.addSmall(antiSpamBtn, positionBtn);
 		this.list.addSmall(opacitySlider, displayTimeSlider);
 
-		// Ряд 4: Макс. сообщений
-		this.list.addSmall(maxVisibleSlider, null);
+		// Ряд 4: Макс. сообщений | Кастомизация
+		this.list.addSmall(maxVisibleSlider, customizationBtn);
 	}
 
 	private static Component onOff(boolean on) {

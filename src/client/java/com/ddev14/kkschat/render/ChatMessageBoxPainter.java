@@ -1,9 +1,13 @@
 package com.ddev14.kkschat.render;
 
+import com.ddev14.kkschat.KksChatHud;
+import com.ddev14.kkschat.KksChatModClient;
 import com.ddev14.kkschat.chat.ChatLayout;
 import com.ddev14.kkschat.chat.ChatMessageEntry;
 import com.ddev14.kkschat.chat.MessageBounds;
 import com.ddev14.kkschat.chat.MessageType;
+import com.ddev14.kkschat.chat.RuleEngine;
+import net.minecraft.world.item.Items;
 import net.minecraft.client.gui.ActiveTextCollector;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -50,11 +54,13 @@ public final class ChatMessageBoxPainter {
 	 * @param topAnchor true для позиций «сверху», false для позиций «снизу»
 	 * @param chatOpen  true — чат открыт (включаем hover-tooltip через ActiveTextCollector)
 	 * @param boundsKey ключ для записи MessageBounds в карту; Integer.MIN_VALUE — не записывать
+	 * @param offsetX   дополнительный сдвиг по X (анимация)
+	 * @param offsetY   дополнительный сдвиг по Y (анимация)
 	 */
 	public static int renderSingleMessage(GuiGraphicsExtractor guiGraphics, Font font, int screenWidth, int startY,
 			ChatMessageEntry entry, float alpha, float backgroundOpacity,
 			Map<Integer, MessageBounds> messageBounds, int chatPosition, boolean topAnchor,
-			boolean chatOpen, int boundsKey) {
+			boolean chatOpen, int boundsKey, int offsetX, int offsetY) {
 		Component component = entry.message;
 		if (component == null || component.getString().isEmpty()) {
 			return 0;
@@ -93,7 +99,7 @@ public final class ChatMessageBoxPainter {
 		int logicalTextWidth = Math.min(ChatLayout.MAX_BOX_WIDTH - totalNonTextWidth, fullTextWidth);
 
 		int boxWidth = logicalTextWidth + totalNonTextWidth;
-		int x = calculateX(screenWidth, boxWidth, chatPosition);
+		int x = calculateX(screenWidth, boxWidth, chatPosition) + offsetX;
 
 		int textAreaStartX = x + leftNonText;
 		int maxTextWidth = logicalTextWidth;
@@ -106,17 +112,14 @@ public final class ChatMessageBoxPainter {
 		int textHeight = font.lineHeight * lines.size();
 		int contentHeight = isJoinMessage ? textHeight : Math.max(ChatLayout.AVATAR_SIZE, textHeight);
 		int boxHeight = contentHeight + ChatLayout.VERTICAL_PADDING * 2;
-		int y = topAnchor ? startY : startY - boxHeight;
+		int y = (topAnchor ? startY : startY - boxHeight) + offsetY;
 
 		int baseAlpha = (int) (backgroundOpacity * 255.0f);
 		int animatedAlpha = (int) (baseAlpha * alpha);
 
-		// Фон зависит от типа сообщения
-		int bgBase = switch (entry.type) {
-			case CHALLENGE   -> 0x1A0028;
-			case ACHIEVEMENT -> 0x001A04;
-			default          -> 0x000000;
-		};
+		// Background color: config map → type default
+		KksChatHud hudForBg = KksChatModClient.getHud();
+		int bgBase = resolveBgColor(entry.type, hudForBg);
 		guiGraphics.fill(x, y, x + boxWidth, y + boxHeight, (animatedAlpha << 24) | bgBase);
 
 		// Цветная вертикальная полоска-акцент для достижений/испытаний
@@ -136,18 +139,33 @@ public final class ChatMessageBoxPainter {
 			} else if (entry.senderName != null) {
 				ChatHudAvatarRenderer.renderPlayerHeadByName(guiGraphics, avatarX, avatarY, entry.senderName, alpha);
 			} else {
-				// Иконка по типу сообщения
-				switch (entry.type) {
-					case CHALLENGE   -> ChatHudAvatarRenderer.renderNetheriteIcon(guiGraphics, avatarX, avatarY, alpha);
-					case ACHIEVEMENT -> ChatHudAvatarRenderer.renderEmeraldIcon(guiGraphics, avatarX, avatarY, alpha);
-					case ERROR       -> ChatHudAvatarRenderer.renderBarrierIcon(guiGraphics, avatarX, avatarY, alpha);
-					case SLEEP       -> ChatHudAvatarRenderer.renderBedIcon(guiGraphics, avatarX, avatarY, alpha);
-					case SCREENSHOT  -> ChatHudAvatarRenderer.renderCameraIcon(guiGraphics, avatarX, avatarY, alpha);
-					case SYSTEM      -> ChatHudAvatarRenderer.renderStickIcon(guiGraphics, avatarX, avatarY, alpha);
-					default          -> ChatHudAvatarRenderer.renderDefaultSteveHead(guiGraphics, avatarX, avatarY, alpha);
+				// Icon: rule override takes priority over type-default config icon
+				KksChatHud hud = KksChatModClient.getHud();
+				if (entry.iconOverride != null) {
+					ChatHudAvatarRenderer.renderIconById(guiGraphics, avatarX, avatarY, alpha,
+							entry.iconOverride, new net.minecraft.world.item.ItemStack(Items.STICK));
+				} else switch (entry.type) {
+				case CHALLENGE     -> ChatHudAvatarRenderer.renderIconById(guiGraphics, avatarX, avatarY, alpha,
+						hud != null ? hud.getIconChallenge()    : null, new net.minecraft.world.item.ItemStack(Items.NETHERITE_INGOT));
+				case ACHIEVEMENT   -> ChatHudAvatarRenderer.renderIconById(guiGraphics, avatarX, avatarY, alpha,
+						hud != null ? hud.getIconAchievement()  : null, new net.minecraft.world.item.ItemStack(Items.EMERALD));
+				case ERROR         -> ChatHudAvatarRenderer.renderIconById(guiGraphics, avatarX, avatarY, alpha,
+						hud != null ? hud.getIconError()        : null, new net.minecraft.world.item.ItemStack(Items.BARRIER));
+				case SLEEP         -> ChatHudAvatarRenderer.renderIconById(guiGraphics, avatarX, avatarY, alpha,
+						hud != null ? hud.getIconSleep()        : null, new net.minecraft.world.item.ItemStack(Items.RED_BED));
+				case SCREENSHOT    -> ChatHudAvatarRenderer.renderCameraIcon(guiGraphics, avatarX, avatarY, alpha);
+				case COMMAND_BLOCK -> ChatHudAvatarRenderer.renderIconById(guiGraphics, avatarX, avatarY, alpha,
+						hud != null ? hud.getIconCommandBlock() : null, new net.minecraft.world.item.ItemStack(Items.COMMAND_BLOCK));
+				case WHISPER       -> ChatHudAvatarRenderer.renderIconById(guiGraphics, avatarX, avatarY, alpha,
+						hud != null ? hud.getIconWhisper()      : null, new net.minecraft.world.item.ItemStack(Items.PAPER));
+				case JOIN_LEAVE    -> ChatHudAvatarRenderer.renderIconById(guiGraphics, avatarX, avatarY, alpha,
+						hud != null ? hud.getIconJoinLeave()    : null, new net.minecraft.world.item.ItemStack(Items.OAK_DOOR));
+			default            -> ChatHudAvatarRenderer.renderIconById(guiGraphics, avatarX, avatarY, alpha,
+					hud != null ? hud.getIconSystem()       : null, new net.minecraft.world.item.ItemStack(Items.STICK));
 				}
 			}
 		}
+
 
 		int textX = textAreaStartX;
 		int totalTextHeight = font.lineHeight * lines.size();
@@ -187,5 +205,25 @@ public final class ChatMessageBoxPainter {
 		}
 
 		return boxHeight;
+	}
+
+	/**
+	 * Resolves the background RGB color for a message type.
+	 * Checks the config map first; falls back to built-in defaults.
+	 */
+	private static int resolveBgColor(MessageType type, KksChatHud hud) {
+		if (hud != null && hud.bgColors != null) {
+			String hex = hud.bgColors.get(type.name());
+			if (hex != null) {
+				Integer parsed = RuleEngine.parseHexColor(hex);
+				if (parsed != null) return parsed;
+			}
+		}
+		return switch (type) {
+			case CHALLENGE   -> 0x1A0028;
+			case ACHIEVEMENT -> 0x001A04;
+			case ERROR       -> 0x1A0000;
+			default          -> 0x000000;
+		};
 	}
 }

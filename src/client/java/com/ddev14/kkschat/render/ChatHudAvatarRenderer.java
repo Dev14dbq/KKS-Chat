@@ -8,9 +8,11 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
@@ -27,6 +29,7 @@ public final class ChatHudAvatarRenderer {
 	private static final ItemStack CLOCK_STACK = new ItemStack(Items.CLOCK);
 	private static final ItemStack STICK_STACK = new ItemStack(Items.STICK);
 	private static final ItemStack BED_STACK = new ItemStack(Items.RED_BED);
+	private static final ItemStack COMMAND_BLOCK_STACK = new ItemStack(Items.COMMAND_BLOCK);
 
 	public static void renderPlayerHead(GuiGraphicsExtractor guiGraphics, int x, int y, PlayerInfo owner, float opacity) {
 		if (owner == null) {
@@ -136,6 +139,32 @@ public final class ChatHudAvatarRenderer {
 		int iconY = y - 1;
 		int color = ARGB.white(alpha);
 		guiGraphics.item(BED_STACK, x, iconY, color);
+	}
+
+	public static void renderCommandBlockIcon(GuiGraphicsExtractor guiGraphics, int x, int y, float alpha) {
+		int iconY = y - 1;
+		int color = ARGB.white(alpha);
+		guiGraphics.item(COMMAND_BLOCK_STACK, x, iconY, color);
+	}
+
+	/**
+	 * Рендерит иконку по Minecraft item ID (например "minecraft:diamond").
+	 * Если ID невалиден или предмет не найден — рендерит fallback.
+	 */
+	public static void renderIconById(GuiGraphicsExtractor guiGraphics, int x, int y, float alpha,
+			String itemId, ItemStack fallback) {
+		ItemStack stack = fallback;
+		if (itemId != null && !itemId.isBlank()) {
+			try {
+				Identifier rl = Identifier.parse(itemId);
+				Item item = BuiltInRegistries.ITEM.getValue(rl);
+				if (item != Items.AIR) {
+					stack = new ItemStack(item);
+				}
+			} catch (Exception ignored) {}
+		}
+		int color = ARGB.white(alpha);
+		guiGraphics.item(stack, x, y - 1, color);
 	}
 
 	public static void renderCameraIcon(GuiGraphicsExtractor guiGraphics, int x, int y, float alpha) {

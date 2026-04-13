@@ -30,6 +30,9 @@ public enum MessageType {
     /** Уведомление о сохранённом скриншоте. */
     SCREENSHOT,
 
+    /** Вывод командного блока (chat.type.admin, [@: …]). */
+    COMMAND_BLOCK,
+
     /** Любое другое системное сообщение. */
     SYSTEM;
 

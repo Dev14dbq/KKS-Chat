@@ -12,6 +12,7 @@ public class KksChatModClient implements ClientModInitializer {
 	private static KksChatHud createHud() {
 		KksChatHud hud = new KksChatHud();
 		hud.loadConfig();
+		KksChatConfig.save(hud);
 		return hud;
 	}
 	

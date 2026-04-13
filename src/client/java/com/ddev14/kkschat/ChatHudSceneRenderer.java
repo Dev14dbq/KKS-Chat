@@ -1,5 +1,6 @@
 package com.ddev14.kkschat;
 
+import com.ddev14.kkschat.chat.ChatAnimationType;
 import com.ddev14.kkschat.chat.ChatDisplayTiming;
 import com.ddev14.kkschat.chat.ChatLayout;
 import com.ddev14.kkschat.chat.ChatMessageEntry;
@@ -32,6 +33,8 @@ public final class ChatHudSceneRenderer {
 		int chatPosition = hud.getChatPosition();
 		boolean topAnchor = ChatLayout.isTopPosition(chatPosition);
 		long displayTimeMs = hud.displayTimeSeconds * 1000L;
+		ChatAnimationType animIn  = hud.animationIn;
+		ChatAnimationType animOut = hud.animationOut;
 
 		int currentY = topAnchor ? ChatLayout.TOP_OFFSET : screenHeight - ChatLayout.BOTTOM_OFFSET;
 		int spacing = 2;
@@ -40,11 +43,18 @@ public final class ChatHudSceneRenderer {
 			ChatMessageEntry entry = hud.messageHistory.get(i);
 			if (entry == null || entry.message == null) continue;
 
-			float alpha = ChatDisplayTiming.alphaForDisplayDuration(entry, now, hud.displayTimeSeconds);
-			if (alpha < 0f) break;
+			int entryDisplayTime = entry.displayTimeOverride > 0
+					? entry.displayTimeOverride : hud.displayTimeSeconds;
 
-		int messageHeight = ChatMessageBoxPainter.renderSingleMessage(guiGraphics, font, screenWidth, currentY,
-				entry, alpha, hud.backgroundOpacity, hud.messageBounds, chatPosition, topAnchor, false, Integer.MIN_VALUE);
+			ChatDisplayTiming.AnimTransform anim =
+					ChatDisplayTiming.computeTransform(entry, now, entryDisplayTime, animIn, animOut);
+			if (anim.hidden) break;
+
+			int messageHeight = ChatMessageBoxPainter.renderSingleMessage(
+					guiGraphics, font, screenWidth, currentY,
+					entry, anim.alpha, hud.backgroundOpacity, hud.messageBounds,
+					chatPosition, topAnchor, false, Integer.MIN_VALUE,
+					anim.offsetX, anim.offsetY);
 
 			currentY = topAnchor
 					? currentY + messageHeight + spacing
@@ -58,8 +68,8 @@ public final class ChatHudSceneRenderer {
 
 		if (hud.messageHistory.isEmpty()
 				|| (now - hud.messageHistory.get(hud.messageHistory.size() - 1).timestamp > displayTimeMs)) {
-		hud.messageComponent = null;
-		hud.senderInfo = null;
+			hud.messageComponent = null;
+			hud.senderInfo = null;
 		}
 	}
 
@@ -138,9 +148,10 @@ public final class ChatHudSceneRenderer {
 	private static int renderEntry(GuiGraphicsExtractor g, Font font, int screenWidth, int currentY,
 			ChatMessageEntry entry, float alpha, KksChatHud hud, int chatPosition, boolean topAnchor,
 			int boundsKey) {
-		// chatOpen=true: чат открыт, включаем hover-tooltips через ActiveTextCollector
+		// Open chat: no animation offsets (messages are always fully visible)
 		return ChatMessageBoxPainter.renderSingleMessage(g, font, screenWidth, currentY,
-				entry, alpha, hud.backgroundOpacity, hud.messageBounds, chatPosition, topAnchor, true, boundsKey);
+				entry, alpha, hud.backgroundOpacity, hud.messageBounds, chatPosition, topAnchor, true, boundsKey,
+				0, 0);
 	}
 
 	private static int advance(int currentY, int height, int spacing, boolean topAnchor) {

@@ -2,6 +2,7 @@ package com.ddev14.kkschat;
 
 import com.ddev14.kkschat.chat.ChatMessageEntry;
 import com.ddev14.kkschat.chat.MessageType;
+import com.ddev14.kkschat.chat.RuleEngine;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
 
@@ -35,6 +36,16 @@ public final class ChatHistoryAppender {
 		}
 
 		ChatMessageEntry entry = new ChatMessageEntry(message, senderInfo, receiverInfo, type, senderName);
+
+		// Apply config rules
+		if (!hud.rules.isEmpty()) {
+			RuleEngine.Result rr = RuleEngine.apply(hud.rules, entry);
+			if (rr.hide) return null;
+			if (rr.iconOverride != null)       entry.iconOverride        = rr.iconOverride;
+			if (rr.noStyle)                    entry.noStyle             = true;
+			if (rr.displayTimeOverride > 0)    entry.displayTimeOverride = (int) rr.displayTimeOverride;
+		}
+
 		hud.messageHistory.add(entry);
 		trimToMaxHistory(hud);
 		hud.scrollOffset = 0;
